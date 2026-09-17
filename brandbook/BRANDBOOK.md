@@ -88,17 +88,21 @@ the prefix carries the family, the suffix carries the brand.
 
 | Token | Value | Where it comes from |
 |---|---|---|
-| `--mb-ink` | `#16121a` | Text ink, pulled slightly toward the signal hue so the two sit together. |
-| `--mb-signal` | `#d946ef` | The brand colour. A fuchsia — unclaimed in the family. |
-| `--mb-paper` | `#f6f4f7` | Paper. |
-| `--mb-paper-dark` | `#120f14` | The same, inverted. |
+| `--mb-ink` | `#14161f` | Text ink, pulled slightly toward the signal hue so the two sit together. |
+| `--mb-signal` | `#1d4ed8` | The brand colour. A royal blue. |
+| `--mb-paper` | `#f4f5f8` | Paper. |
+| `--mb-paper-dark` | `#0f1117` | The same, inverted. |
 
-**Why fuchsia.** An alerts product needs an accent that says *look here* and
-still cannot be mistaken for an error: red is the one colour every interface
-already spends on failure, and it is MacroMkt's besides. Fuchsia has the urgency
-without the meaning, and no other Macro brand uses it (MacroBP gold, MacroReply
-violet, MacroPrimer green, MacroSkill indigo, MacroAccount blue, MacroKB lime,
-MacroLinker cyan).
+**Why blue.** A news product has to be believed before it is read, and blue is
+the colour the whole briefing genre — Morning Brew, Axios, 1440, the Guardian,
+the BBC — has settled on for exactly that. It says *information* without saying
+*alarm*.
+
+It is not unclaimed in the family: MacroAccount is a muted ledger blue
+(`#2f6fb0`) and MacroSkill a periwinkle (`#5c5cff`). This one is deeper and more
+saturated than either, and the collision was accepted knowingly — credibility
+with a first-time reader matters more than distance from a sibling. An earlier
+draft used fuchsia, which was distinct in the family and wrong for news.
 
 ## Type
 

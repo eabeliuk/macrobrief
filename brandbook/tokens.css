@@ -1,10 +1,10 @@
 /* MacroBrief brand tokens. See BRANDBOOK.md.
  *
- * The signal colour is deliberately not red: an alerts product needs an accent
- * that says "look here" without being read as an error. */
+ * Royal blue: the briefing genre's trust colour. It collides mildly with
+ * MacroAccount/MacroSkill and that was accepted — credibility first. */
 :root {
-  --mb-ink: #16121a;
-  --mb-signal: #d946ef;
-  --mb-paper: #f6f4f7;
-  --mb-paper-dark: #120f14;
+  --mb-ink: #14161f;
+  --mb-signal: #1d4ed8;
+  --mb-paper: #f4f5f8;
+  --mb-paper-dark: #0f1117;
 }

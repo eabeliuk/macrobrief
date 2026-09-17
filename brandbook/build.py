@@ -29,7 +29,7 @@ FORESHORTEN = 0.38
 # ~22 it reads as a wireframe.
 SEAM = 18
 
-INK, SIGNAL, PAPER, PAPER_DARK = "#16121a", "#d946ef", "#f6f4f7", "#120f14"
+INK, SIGNAL, PAPER, PAPER_DARK = "#14161f", "#1d4ed8", "#f4f5f8", "#0f1117"
 
 # Measured with fontTools against Open Sans Bold at 440 / -10 tracking (the
 # same method reproduces MacroAccount's recorded 3056.91 within 4 units).
@@ -277,7 +277,7 @@ def build_html():
         for n, t, s in FAMILY
     )
     sw = (swatch(INK, "Ink", "Text ink, pulled slightly toward the signal hue.")
-          + swatch(SIGNAL, "Signal", "The brand colour. Unclaimed in the family.")
+          + swatch(SIGNAL, "Signal", "The brand colour. A royal blue.")
           + swatch(PAPER, "Paper", "Paper.")
           + swatch(PAPER_DARK, "Paper, inverted", "The same in the dark."))
     lock = open(os.path.join(LOGOS, "imagotipo.svg")).read().split("-->", 1)[1].strip()
@@ -359,12 +359,14 @@ def build_html():
         # Colour
         '<section class="page"><h1>Colour</h1><div class="rule-strong"></div>'
         '<div class="sws">' + sw + '</div>'
-        '<h2 style="margin-top:.3in;">Why fuchsia</h2>'
-        '<p>An alerts product needs an accent that says <em>look here</em> and still cannot be mistaken '
-        'for an error: red is the one colour every interface already spends on failure, and it is '
-        'MacroMkt&rsquo;s besides. Fuchsia has the urgency without the meaning.</p>'
-        '<p>It is also unclaimed across the family: MacroBP gold, MacroReply violet, MacroPrimer green, '
-        'MacroSkill indigo, MacroAccount blue, MacroKB lime, MacroLinker cyan.</p>'
+        '<h2 style="margin-top:.3in;">Why blue</h2>'
+        '<p>A news product has to be believed before it is read, and blue is the colour the whole '
+        'briefing genre &mdash; Morning Brew, Axios, 1440, the Guardian, the BBC &mdash; has settled on '
+        'for exactly that. It says <em>information</em> without saying <em>alarm</em>.</p>'
+        '<p>It is not unclaimed in the family: MacroAccount is a muted ledger blue and MacroSkill a '
+        'periwinkle. This one is deeper and more saturated than either, and the collision was accepted '
+        'knowingly &mdash; credibility with a first-time reader matters more than distance from a sibling. '
+        'An earlier draft used fuchsia, which was distinct in the family and wrong for news.</p>'
         '<h2 style="margin-top:.26in;">Where each colour goes</h2>'
         '<table><thead><tr><th>Ground</th><th>M</th><th>Globe</th><th>Wordmark</th></tr></thead><tbody>'
         '<tr><td>Light</td><td>Ink</td><td>Signal</td><td>Macro ink &middot; Brief signal</td></tr>'
