@@ -316,8 +316,38 @@ model Delivery {
   sentAt   DateTime?
   openedAt DateTime?
 
+  clicks Click[]
+
   createdAt DateTime @default(now())
 
   @@unique([briefId, channel])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// 5. Inbound webhooks, applied exactly once.
+// ---------------------------------------------------------------------------
+
+/// Stripe redelivers. An event is claimed here before it is applied, so a
+/// redelivery is a no-op instead of a second plan change.
+model WebhookEvent {
+  id          String    @id
+  provider    String
+  type        String
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  error       String?
+}
+
+/// A reader opened a story from a delivery. The ranking signal nobody else
+/// has; recorded from day one so it never has to be backfilled.
+model Click {
+  id         String   @id @default(cuid())
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  link       String
+  at         DateTime @default(now())
+
+  @@index([deliveryId])
+  @@index([link])
 }
