@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
 
 import { auth } from "@/auth";
+import type { PlanId } from "@/lib/domain/plans";
 import { prisma } from "@/lib/prisma";
 
 export async function currentUser(): Promise<User | null> {
@@ -24,6 +25,11 @@ async function settleStaff(user: User): Promise<User> {
     .filter(Boolean);
   if (!allowed.includes(user.email.toLowerCase())) return user;
   return prisma.user.update({ where: { id: user.id }, data: { isSuperAdmin: true } });
+}
+
+/** The plan whose limits apply. Staff run on Max whatever the stored plan says. */
+export function planOf(user: Pick<User, "plan" | "isSuperAdmin">): PlanId {
+  return user.isSuperAdmin ? "MAX" : user.plan;
 }
 
 export async function requireUser(): Promise<User> {

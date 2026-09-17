@@ -5,13 +5,13 @@ import { SubmitButton } from "@/components/submit-button";
 import { Field, Notice } from "@/components/ui";
 import { PLANS, cadenceAllowed, channelAllowed, type ChannelId } from "@/lib/domain/plans";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
+import { planOf, requireUser } from "@/lib/session";
 
 import { addTopic, briefNow, deleteTopic, setChannel, updateSchedule, verifyChannel } from "./actions";
 
 const ERRORS: Record<string, string> = {
   topic: "A topic needs a name of at least two characters.",
-  limit: "Your plan's topic limit is reached. Remove one, or upgrade under Billing.",
+  limit: "Your plan's topic limit is reached. Remove one, or upgrade under Billing (link in the header).",
   schedule: "That schedule didn't make sense.",
   timezone: "Unknown timezone.",
   channel: "That channel setting didn't make sense.",
@@ -38,7 +38,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     prisma.schedule.findUnique({ where: { userId: user.id } }),
     prisma.deliveryChannel.findMany({ where: { userId: user.id } }),
   ]);
-  const plan = PLANS[user.plan];
+  const plan = PLANS[planOf(user)];
   const channelByKind = new Map(channels.map((c) => [c.channel, c]));
 
   return (
@@ -102,7 +102,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <Link href={`/app/briefs/${b.id}`} className="font-medium hover:underline">{b.title}</Link>
                 <p className="text-xs text-ink-3">
                   {b.periodKey} · {b.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC ·{" "}
-                  {b.deliveries.map((d) => `${d.channel.toLowerCase()} ${d.status.toLowerCase()}`).join(", ") || "web only"}
+                  {b.deliveries.map((d) => `${d.channel.toLowerCase()} ${d.status.toLowerCase()}${d.error ? ` — ${d.error}` : ""}`).join(", ") || "web only"}
                 </p>
               </div>
             </li>
@@ -115,7 +115,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <ScheduleForm
           action={updateSchedule}
           cadence={schedule?.cadence ?? "WEEKLY"}
-          cadences={(["WEEKLY", "DAILY", "TWICE_DAILY"] as const).map((c) => ({ id: c, label: c.toLowerCase().replace("_", " "), allowed: cadenceAllowed(user.plan, c) }))}
+          cadences={(["WEEKLY", "DAILY", "TWICE_DAILY"] as const).map((c) => ({ id: c, label: c.toLowerCase().replace("_", " "), allowed: cadenceAllowed(planOf(user), c) }))}
           hour={schedule?.hour ?? 7}
           weekday={schedule?.weekday ?? 1}
           timezone={schedule?.timezone ?? "UTC"}
@@ -127,7 +127,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {(Object.keys(CHANNEL_HELP) as (keyof typeof CHANNEL_HELP)[]).map((channel) => {
             const help = CHANNEL_HELP[channel];
             const row = channelByKind.get(channel);
-            const allowed = channelAllowed(user.plan, channel);
+            const allowed = channelAllowed(planOf(user), channel);
             return (
               <form key={channel} action={setChannel} className="space-y-2 border-t border-rule pt-3 first:border-t-0 first:pt-0">
                 <input type="hidden" name="channel" value={channel} />

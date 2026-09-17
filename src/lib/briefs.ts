@@ -1,4 +1,4 @@
-import type { Channel, Plan, Prisma } from "@prisma/client";
+import type { Channel, Prisma } from "@prisma/client";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 import { publisherAffinity } from "@/lib/affinity";
@@ -12,11 +12,12 @@ import {
   type Composed,
   type PromptTopic,
 } from "@/lib/domain/brief";
-import { PLANS, effectiveDelivery, type ChannelId } from "@/lib/domain/plans";
+import { PLANS, effectiveDelivery, type ChannelId, type PlanId } from "@/lib/domain/plans";
 import { rankItems } from "@/lib/domain/ranking";
 import { isRelevant, queryTerms } from "@/lib/domain/relevance";
 import { duePeriod, periodLabel } from "@/lib/domain/schedule";
 import { prisma } from "@/lib/prisma";
+import { planOf } from "@/lib/session";
 
 /**
  * Composing briefs.
@@ -47,7 +48,8 @@ export async function composeDueBriefs(now: Date, { limit = 25, userId }: { limi
   const summary: ComposeSummary = { considered: users.length, composed: 0, skipped: [] };
   for (const user of users) {
     if (!user.schedule) continue;
-    const { cadence, channels } = effectiveDelivery(user.plan, {
+    const plan = planOf(user);
+    const { cadence, channels } = effectiveDelivery(plan, {
       cadence: user.schedule.cadence,
       channels: user.channels.map((c) => c.channel),
     });
@@ -60,7 +62,7 @@ export async function composeDueBriefs(now: Date, { limit = 25, userId }: { limi
       // the reader just signed up and is waiting for it.
       const gatherEnd = user._count.briefs === 0 ? now : due.windowEnd;
       const affinity = await publisherAffinity(user.id, now);
-      const topics = await gatherTopics(user.topics, user.plan, due.windowStart, gatherEnd, affinity);
+      const topics = await gatherTopics(user.topics, plan, due.windowStart, gatherEnd, affinity);
       if (!topics.some((t) => t.items.length)) {
         summary.skipped.push({ userId: user.id, reason: "no items in window yet" });
         continue;
@@ -110,7 +112,7 @@ export async function composeDueBriefs(now: Date, { limit = 25, userId }: { limi
 
 async function gatherTopics(
   topics: { id: string; name: string; query: string }[],
-  plan: Plan,
+  plan: PlanId,
   windowStart: Date,
   windowEnd: Date,
   affinity: (publisher: string | null) => number,

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Notice } from "@/components/ui";
 import { PAID_PLANS } from "@/lib/domain/billing";
 import { PLANS, PLAN_ORDER } from "@/lib/domain/plans";
-import { requireUser } from "@/lib/session";
+import { planOf, requireUser } from "@/lib/session";
 import { priceCatalog, stripeConfigured } from "@/lib/stripe/client";
 
 import { openPortal, startCheckout } from "./actions";
@@ -20,7 +20,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const user = await requireUser();
   const catalog = priceCatalog();
   const configured = stripeConfigured();
-  const current = PLANS[user.plan];
+  const current = PLANS[planOf(user)];
 
   return (
     <div className="space-y-8">
@@ -29,7 +29,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         <h1 className="mt-2 text-2xl font-bold tracking-tight">Billing</h1>
         <p className="text-sm text-ink-2">
           You are on <strong>{current.name}</strong>
-          {current.priceUsd ? ` — $${current.priceUsd}/mo` : ""}.
+          {current.priceUsd ? ` — $${current.priceUsd}/mo` : ""}.{user.isSuperAdmin ? " Staff accounts run on Max limits regardless of plan." : ""}
         </p>
       </div>
 
@@ -52,7 +52,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         <tbody>
           {PLAN_ORDER.map((id) => {
             const plan = PLANS[id];
-            const isCurrent = id === user.plan;
+            const isCurrent = id === planOf(user);
             const purchasable = configured && PAID_PLANS.includes(id as (typeof PAID_PLANS)[number]) && Boolean(catalog[id as (typeof PAID_PLANS)[number]]);
             return (
               <tr key={id} className={`border-b border-rule ${isCurrent ? "bg-accent-wash" : ""}`}>

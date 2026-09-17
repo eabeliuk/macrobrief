@@ -16,7 +16,7 @@ import { sendEmail } from "@/lib/mailer";
 import { sendWhatsApp, whatsappConfigured } from "@/lib/whatsapp";
 import { pollDueSources } from "@/lib/ingest";
 import { prisma } from "@/lib/prisma";
-import { ownedTopic, requireUser } from "@/lib/session";
+import { ownedTopic, planOf, requireUser } from "@/lib/session";
 import { attachManualSource, attachSourcesForTopic } from "@/lib/sources";
 
 /**
@@ -40,7 +40,7 @@ export async function addTopic(formData: FormData): Promise<void> {
   if (!parsed.success) redirect("/app?error=topic");
 
   const count = await prisma.topic.count({ where: { userId: user.id } });
-  if (!canAddTopic(user.plan, count)) redirect("/app?error=limit");
+  if (!canAddTopic(planOf(user), count)) redirect("/app?error=limit");
 
   const topic = await prisma.topic.create({
     data: {
@@ -106,7 +106,7 @@ export async function updateSchedule(formData: FormData): Promise<void> {
   const user = await requireUser();
   const parsed = ScheduleInput.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/app?error=schedule");
-  const cadence: CadenceId = cadenceAllowed(user.plan, parsed.data.cadence) ? parsed.data.cadence : "WEEKLY";
+  const cadence: CadenceId = cadenceAllowed(planOf(user), parsed.data.cadence) ? parsed.data.cadence : "WEEKLY";
   try {
     Intl.DateTimeFormat("en-US", { timeZone: parsed.data.timezone });
   } catch {
@@ -138,7 +138,7 @@ export async function setChannel(formData: FormData): Promise<void> {
   });
   if (!parsed.success) redirect("/app?error=channel");
   const channel: ChannelId = parsed.data.channel;
-  if (!channelAllowed(user.plan, channel)) redirect("/app?error=plan");
+  if (!channelAllowed(planOf(user), channel)) redirect("/app?error=plan");
   // AUDIO has no address: it lives in the app and rides along in the email.
   let address = parsed.data.address || (channel === "EMAIL" ? user.email ?? "" : channel === "AUDIO" ? "app" : "");
   if (channel === "WHATSAPP") {
