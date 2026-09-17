@@ -1,0 +1,149 @@
+/**
+ * A brief, before and after the model.
+ *
+ * `buildPrompt` turns ranked items into the deterministic user message the
+ * composer sends (deterministic so the cache prefix holds). `Composed` is
+ * what comes back; `renderText` / `renderMarkdown` turn it into the two
+ * canonical bodies stored on the Brief row — plain text is what email, TEXT
+ * and (read aloud) audio send, markdown is the web view.
+ */
+
+import { z } from "zod";
+
+import { truncate } from "./feed";
+
+export type Story = { headline: string; summary: string; link: string; publisher: string | null };
+export type ComposedSection = { topicId: string; heading: string; stories: Story[] };
+export type Composed = { title: string; intro?: string; sections: ComposedSection[] };
+
+export type PromptItem = {
+  id: string;
+  title: string;
+  summary: string | null;
+  link: string;
+  publisher: string | null;
+  publishedAt: Date | null;
+};
+
+export type PromptTopic = {
+  topicId: string;
+  name: string;
+  query: string;
+  storiesWanted: number;
+  items: PromptItem[];
+};
+
+export type PromptInput = {
+  periodLabel: string;
+  lang: string;
+  topics: PromptTopic[];
+};
+
+/** Per-item cap inside the prompt; the model needs the gist, not the article. */
+const PROMPT_SUMMARY_CHARS = 600;
+
+export const SYSTEM_PROMPT = `You write MacroBrief: a short, factual news brief for one reader who follows a few topics and does not have time to read the sources.
+
+For each topic you receive candidate items (headline, publisher, date, link, snippet). Choose the stories that matter most for someone following that topic, merge duplicates that report the same event, and write each as a headline plus a two-to-three sentence summary that says what happened and why it matters. Cite exactly one link per story, chosen from the candidates — never invent a link or a fact that is not in the candidates. Prefer the most authoritative publisher when several report the same event. If a topic has no candidates worth reporting, return it with an empty story list. Write in the reader's language. No preamble, no sign-off.`;
+
+export const ComposedSchema = z.object({
+  title: z.string(),
+  intro: z.string().optional(),
+  sections: z.array(
+    z.object({
+      topicId: z.string(),
+      heading: z.string(),
+      stories: z.array(
+        z.object({
+          headline: z.string(),
+          summary: z.string(),
+          link: z.string(),
+          publisher: z.string().nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+
+export function buildPrompt(input: PromptInput): string {
+  const lines: string[] = [
+    `Reader language: ${input.lang}. Period covered: ${input.periodLabel}.`,
+    "Return one section per topic, in the order given, using the topic ids exactly.",
+    "",
+  ];
+  for (const topic of input.topics) {
+    lines.push(`# Topic ${topic.topicId}: ${topic.name}`);
+    lines.push(`Search query: ${topic.query}. Pick up to ${topic.storiesWanted} stories.`);
+    if (!topic.items.length) lines.push("(no candidates)");
+    for (const item of topic.items) {
+      const date = item.publishedAt ? item.publishedAt.toISOString().slice(0, 10) : "undated";
+      lines.push(`[${item.id}] ${item.title} — ${item.publisher ?? "unknown publisher"} (${date})`);
+      lines.push(`  ${item.link}`);
+      if (item.summary) lines.push(`  ${truncate(item.summary, PROMPT_SUMMARY_CHARS)}`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+const NOTHING_NEW = "Nothing new this period.";
+
+export function renderText(c: Composed): string {
+  const out: string[] = [c.title.toUpperCase(), ""];
+  if (c.intro) out.push(c.intro, "");
+  for (const section of c.sections) {
+    out.push(section.heading.toUpperCase());
+    if (!section.stories.length) out.push(`  ${NOTHING_NEW}`);
+    for (const story of section.stories) {
+      out.push(`• ${story.headline}${story.publisher ? ` (${story.publisher})` : ""}`);
+      out.push(`  ${story.summary}`);
+      out.push(`  ${story.link}`);
+    }
+    out.push("");
+  }
+  return out.join("\n").trimEnd() + "\n";
+}
+
+export function renderMarkdown(c: Composed): string {
+  const out: string[] = [`# ${c.title}`, ""];
+  if (c.intro) out.push(c.intro, "");
+  for (const section of c.sections) {
+    out.push(`## ${section.heading}`, "");
+    if (!section.stories.length) out.push(`_${NOTHING_NEW}_`, "");
+    for (const story of section.stories) {
+      out.push(`**[${story.headline}](${story.link})**${story.publisher ? ` — ${story.publisher}` : ""}  `);
+      out.push(story.summary, "");
+    }
+  }
+  return out.join("\n").trimEnd() + "\n";
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function safeHref(link: string): string | null {
+  return /^https?:\/\//i.test(link) ? escapeHtml(link) : null;
+}
+
+/** Minimal email HTML. Everything from the model is escaped; only http(s) links are linked. */
+export function renderHtml(c: Composed): string {
+  const out: string[] = [
+    `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#111;line-height:1.5">`,
+    `<h1 style="font-size:20px">${escapeHtml(c.title)}</h1>`,
+  ];
+  if (c.intro) out.push(`<p>${escapeHtml(c.intro)}</p>`);
+  for (const section of c.sections) {
+    out.push(`<h2 style="font-size:16px;margin-top:24px">${escapeHtml(section.heading)}</h2>`);
+    if (!section.stories.length) out.push(`<p style="color:#666"><em>${NOTHING_NEW}</em></p>`);
+    for (const story of section.stories) {
+      const href = safeHref(story.link);
+      const headline = escapeHtml(story.headline);
+      const title = href ? `<a href="${href}" style="color:#111">${headline}</a>` : headline;
+      const publisher = story.publisher ? ` <span style="color:#666">— ${escapeHtml(story.publisher)}</span>` : "";
+      out.push(`<p><strong>${title}</strong>${publisher}<br>${escapeHtml(story.summary)}</p>`);
+    }
+  }
+  out.push(`<p style="color:#888;font-size:12px;margin-top:32px">You get this because you follow these topics on MacroBrief. Change topics, schedule or channels in the app.</p></div>`);
+  return out.join("\n");
+}

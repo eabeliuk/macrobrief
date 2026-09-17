@@ -1,0 +1,10 @@
+/* MacroBrief brand tokens. See BRANDBOOK.md.
+ *
+ * The signal colour is deliberately not red: an alerts product needs an accent
+ * that says "look here" without being read as an error. */
+:root {
+  --mb-ink: #16121a;
+  --mb-signal: #d946ef;
+  --mb-paper: #f6f4f7;
+  --mb-paper-dark: #120f14;
+}

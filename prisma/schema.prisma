@@ -1,0 +1,323 @@
+// MacroBrief — topics in, briefs out.
+//
+// Read top to bottom:
+//   1. Auth.js models.
+//   2. What a user follows: Topic, and the global Source graph joined by TopicSource.
+//   3. What we read: Item.
+//   4. What we send: Brief, Delivery, DeliveryChannel, and the per-user Schedule.
+//
+// Three rules this schema exists to enforce:
+//   · A Source is GLOBAL. Two users following the same feed cost one poll, and
+//     feed health is learned once for everyone — that shared source graph is
+//     the asset, not the summaries.
+//   · A Brief is unique per (user, periodKey). The cron may run every minute;
+//     nobody is briefed twice for the same period.
+//   · Every send is a Delivery row. Retries, audit and open-tracking all hang
+//     off it; nothing is sent that does not leave a row.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// 1. Auth.js (NextAuth v5) — required by @auth/prisma-adapter.
+// ---------------------------------------------------------------------------
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  MAX
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  /// Platform staff. A write, not a redeploy.
+  isSuperAdmin Boolean @default(false)
+
+  plan             Plan    @default(FREE)
+  stripeCustomerId String? @unique
+  stripeSubId      String? @unique
+
+  accounts  Account[]
+  sessions  Session[]
+  topics    Topic[]
+  briefs    Brief[]
+  channels  DeliveryChannel[]
+  schedule  Schedule?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// 2. Topics and the global source graph.
+// ---------------------------------------------------------------------------
+
+model Topic {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// What the user typed. Shown as the section heading of the brief.
+  name  String
+  /// The search query used for query feeds and given to the model. Usually
+  /// the name; editable so "NBA" can become "NBA trade rumors".
+  query String
+  /// BCP-47 language for query feeds ("en", "es"). Briefs are written in it.
+  lang  String @default("en")
+
+  sources TopicSource[]
+  briefs  BriefSection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+enum SourceKind {
+  /// A publisher's own RSS/Atom feed.
+  RSS
+  /// A Google News search feed for a query — covers any topic, links redirect.
+  GOOGLE_NEWS
+  /// A Bing News search feed for a query.
+  BING_NEWS
+}
+
+model Source {
+  id   String     @id @default(cuid())
+  kind SourceKind
+  /// Unique: the same feed followed from ten topics is one row.
+  url  String     @unique
+  /// Feed title as the feed reports it, or the publisher name we asked for.
+  title String?
+  /// Publisher / site name used for ranking tiers. Null for query feeds
+  /// (each item carries its own publisher there).
+  publisher String?
+
+  enabled      Boolean   @default(true)
+  lastPolledAt DateTime?
+  lastError    String?
+  /// Consecutive failures. Reset on success; the source is disabled past a cap.
+  failCount    Int       @default(0)
+
+  topics TopicSource[]
+  items  Item[]
+
+  createdAt DateTime @default(now())
+
+  @@index([enabled, lastPolledAt])
+}
+
+model TopicSource {
+  topicId  String
+  sourceId String
+  topic    Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  /// How this source got attached: "query" (auto), "suggested" (model, then
+  /// verified), "manual" (user pasted a URL). Lets the UI explain itself.
+  origin    String
+  createdAt DateTime @default(now())
+
+  @@id([topicId, sourceId])
+  @@index([sourceId])
+}
+
+// ---------------------------------------------------------------------------
+// 3. Items — one row per (source, link). Pruned after 30 days.
+// ---------------------------------------------------------------------------
+
+model Item {
+  id       String @id @default(cuid())
+  sourceId String
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  title       String
+  link        String
+  summary     String?
+  /// Publisher for this item — from <source> on query feeds, the feed's
+  /// publisher otherwise.
+  publisher   String?
+  imageUrl    String?
+  publishedAt DateTime?
+  fetchedAt   DateTime  @default(now())
+
+  @@unique([sourceId, link])
+  @@index([sourceId, publishedAt])
+}
+
+// ---------------------------------------------------------------------------
+// 4. Briefs and delivery.
+// ---------------------------------------------------------------------------
+
+enum Cadence {
+  WEEKLY
+  DAILY
+  TWICE_DAILY
+}
+
+/// When a user wants their brief. One per user.
+model Schedule {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cadence   Cadence @default(WEEKLY)
+  /// Local hour (0–23) the brief should arrive. TWICE_DAILY also sends at hour+12.
+  hour      Int     @default(7)
+  /// IANA zone, e.g. "America/Santiago".
+  timezone  String  @default("UTC")
+  /// WEEKLY only: 0 = Sunday … 6 = Saturday.
+  weekday   Int     @default(1)
+
+  updatedAt DateTime @updatedAt
+}
+
+enum Channel {
+  WEB
+  EMAIL
+  TEXT
+  AUDIO
+  WHATSAPP
+  INSTAGRAM
+}
+
+/// Where to send. WEB needs no row (the app always shows the brief).
+model DeliveryChannel {
+  id      String  @id @default(cuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel Channel
+  /// Email address, E.164 phone, or Instagram handle.
+  address String
+  enabled  Boolean @default(true)
+  verified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, channel])
+}
+
+model Brief {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// e.g. "2026-09-17" (daily), "2026-W38" (weekly), "2026-09-17/pm". The
+  /// idempotency key — see lib/domain/schedule.ts.
+  periodKey String
+  /// The window the brief covers.
+  windowStart DateTime
+  windowEnd   DateTime
+
+  title    String
+  /// Full brief as plain text — the canonical rendering; email and TEXT send this.
+  bodyText String @db.Text
+  /// Same content with links, for the web view.
+  bodyMd   String @db.Text
+  audioUrl String?
+
+  /// Model accounting.
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+
+  sections   BriefSection[]
+  deliveries Delivery[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, periodKey])
+  @@index([userId, createdAt])
+}
+
+/// One section of a brief = one topic. Kept as rows so a topic page can list
+/// "what you were told about this" over time.
+model BriefSection {
+  id      String @id @default(cuid())
+  briefId String
+  brief   Brief  @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  topicId String
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  position Int
+  heading  String
+  /// The composed stories: [{ headline, summary, link, publisher }]
+  stories  Json
+  /// Item ids that fed the model — provenance.
+  itemIds  String[]
+
+  @@unique([briefId, topicId])
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model Delivery {
+  id      String  @id @default(cuid())
+  briefId String
+  brief   Brief   @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  channel Channel
+  address String
+
+  status   DeliveryStatus @default(PENDING)
+  attempts Int            @default(0)
+  error    String?
+  sentAt   DateTime?
+  openedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([briefId, channel])
+  @@index([status])
+}

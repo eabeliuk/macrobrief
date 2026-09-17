@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Placeholder palette — an /art-direction pass is scheduled for M4. */
+:root {
+  --ink: #14161a;
+  --ink-2: #4b5059;
+  --ink-3: #868c96;
+  --page: #f7f7f5;
+  --card: #ffffff;
+  --rule: #e4e5e1;
+  --accent: #1f5eff;
+  --accent-wash: #e8eeff;
+  --warn: #b3402f;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-rule: var(--rule);
+  --color-accent: var(--accent);
+  --color-accent-wash: var(--accent-wash);
+  --color-warn: var(--warn);
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40;
+}
+.btn-quiet {
+  @apply inline-flex items-center justify-center rounded-md border border-rule bg-card px-4 py-2 text-sm font-medium text-ink hover:bg-page disabled:opacity-40;
+}
+.input {
+  @apply w-full rounded-md border border-rule bg-card px-3 py-2 text-sm outline-none focus:border-accent;
+}
+.label {
+  @apply block text-xs font-medium uppercase tracking-wide text-ink-3;
+}
+.card {
+  @apply rounded-lg border border-rule bg-card p-5;
+}
