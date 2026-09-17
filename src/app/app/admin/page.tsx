@@ -6,7 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/session";
 import { SHOWCASE_EMAIL } from "@/lib/showcase";
 
-import { inviteUser, setUserPlan, toggleSource } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
+
+import { inviteUser, pollSource, setUserPlan, toggleSource } from "./actions";
 
 /**
  * The staff view: who signed up and on what tier, what each of them
@@ -135,7 +137,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                         <li key={source.id} className="wire truncate text-ink-2">
                           {source.kind.toLowerCase().replace("_", " ")} · {origin} · {source._count.items} items ·{" "}
                           <span className={source.enabled ? "" : "text-warn"}>{source.enabled ? "on" : "off"}</span> ·{" "}
-                          <span className="normal-case tracking-normal">{source.title ?? source.publisher ?? source.url}</span>
+                          <a href={source.url} target="_blank" rel="noreferrer" className="normal-case tracking-normal hover:text-accent hover:underline">{source.title ?? source.publisher ?? source.url}</a>
                         </li>
                       ))}
                     </ul>
@@ -174,7 +176,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <tr key={s.id} className={`border-b border-rule align-top ${s.enabled ? "" : "text-ink-3"}`}>
                 <td className="max-w-[28rem] py-2.5 pr-3">
                   <p className="truncate font-medium">{s.title ?? s.publisher ?? "(untitled)"}</p>
-                  <p className="wire truncate normal-case tracking-normal text-ink-3">{s.url}</p>
+                  <a href={s.url} target="_blank" rel="noreferrer" className="wire block truncate normal-case tracking-normal text-ink-3 hover:text-accent hover:underline">{s.url}</a>
                 </td>
                 <td className="wire hidden py-2.5 pr-3 sm:table-cell">{s.kind.toLowerCase().replace("_", " ")}</td>
                 <td className="fig py-2.5 pr-3 text-right">{s._count.items}</td>
@@ -185,10 +187,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   {s.lastError ? <p className="mt-0.5 max-w-[16rem] truncate text-ink-3" title={s.lastError}>{s.lastError}</p> : null}
                 </td>
                 <td className="py-2.5 text-right">
-                  <form action={toggleSource}>
-                    <input type="hidden" name="sourceId" value={s.id} />
-                    <button type="submit" className="text-xs text-ink-3 hover:text-ink">{s.enabled ? "Disable" : "Enable"}</button>
-                  </form>
+                  <div className="flex justify-end gap-3">
+                    <form action={pollSource}>
+                      <input type="hidden" name="sourceId" value={s.id} />
+                      <SubmitButton className="text-xs text-ink-3 hover:text-ink" pending="Polling…">Poll now</SubmitButton>
+                    </form>
+                    <form action={toggleSource}>
+                      <input type="hidden" name="sourceId" value={s.id} />
+                      <button type="submit" className="text-xs text-ink-3 hover:text-ink">{s.enabled ? "Disable" : "Enable"}</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}

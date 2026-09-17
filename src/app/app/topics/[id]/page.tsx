@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { SubmitButton } from "@/components/submit-button";
 import { Field, Notice } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { ownedTopic, requireUser } from "@/lib/session";
@@ -41,7 +42,7 @@ export default async function TopicPage({ params, searchParams }: { params: Prom
                   {source.kind.toLowerCase().replace("_", " ")} · {origin} · {source._count.items} items ·{" "}
                   {source.enabled ? (source.lastError ? <span className="text-warn">last poll failed</span> : "ok") : <span className="text-warn">disabled after repeated failures</span>}
                 </p>
-                <p className="truncate text-xs text-ink-3">{source.url}</p>
+                <a href={source.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-ink-3 hover:text-accent hover:underline">{source.url}</a>
               </div>
               <form action={removeSource}>
                 <input type="hidden" name="topicId" value={topic.id} />
@@ -54,7 +55,7 @@ export default async function TopicPage({ params, searchParams }: { params: Prom
         <form action={addSource} className="card mt-4 flex items-end gap-3">
           <input type="hidden" name="topicId" value={topic.id} />
           <div className="flex-1"><Field label="Add a feed or site URL" name="url" required placeholder="https://example.com/feed.xml" /></div>
-          <button type="submit" className="btn-quiet">Verify &amp; add</button>
+          <SubmitButton className="btn-quiet" pending="Fetching…">Verify &amp; add</SubmitButton>
         </form>
       </section>
 

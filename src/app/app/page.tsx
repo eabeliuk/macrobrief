@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ScheduleForm } from "@/components/schedule-form";
+import { SubmitButton } from "@/components/submit-button";
 import { Field, Notice } from "@/components/ui";
 import { PLANS, cadenceAllowed, channelAllowed, type ChannelId } from "@/lib/domain/plans";
 import { prisma } from "@/lib/prisma";
@@ -79,8 +80,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <option value="de">Deutsch</option>
               </select>
             </label>
-            <button type="submit" className="btn">Add topic</button>
-            <p className="text-xs text-ink-3 sm:col-span-4">Adding a topic takes ~10–20 s: publisher feeds are proposed by the model and each is fetched to prove it works.</p>
+            <SubmitButton pending="Finding sources… ~30 s">Add topic</SubmitButton>
+            <p className="text-xs text-ink-3 sm:col-span-4">Adding a topic takes about 30 seconds: publisher feeds are proposed by the model, each is fetched to prove it works, then everything is polled once.</p>
           </form>
         ) : null}
       </section>
@@ -90,7 +91,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <h2 className="text-xl font-semibold tracking-tight">Briefs</h2>
           {topics.length ? (
             <form action={briefNow}>
-              <button type="submit" className="btn-quiet">Brief me now</button>
+              <SubmitButton className="btn-quiet" pending="Polling, ranking, writing… ~1–2 min">Brief me now</SubmitButton>
             </form>
           ) : null}
         </div>

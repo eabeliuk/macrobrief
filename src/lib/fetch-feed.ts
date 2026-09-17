@@ -12,6 +12,16 @@ import { hostIsForbidden, ipIsPrivate } from "@/lib/domain/netguard";
  */
 
 const USER_AGENT = "MacroBrief/1.0 (+https://macrobrief.com)";
+/**
+ * Google News' RSS endpoint answers 503 to a non-browser User-Agent from
+ * cloud IP ranges (observed from Cloud Run: every request, all day, while
+ * the same URLs worked from a laptop). It is a public feed and we poll it
+ * every 30 minutes; a browser UA is what it accepts.
+ */
+const BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+function userAgentFor(url: string): string {
+  return /news\.google\.com|bing\.com/i.test(url) ? BROWSER_UA : USER_AGENT;
+}
 const TIMEOUT_MS = 10_000;
 /** A feed larger than this is not a feed we want. */
 const MAX_BYTES = 2_000_000;
@@ -78,7 +88,7 @@ async function get(url: string): Promise<{ contentType: string | null; body: str
     for (let hop = 0; ; hop++) {
       await assertPublic(current);
       response = await fetch(current, {
-        headers: { "User-Agent": USER_AGENT, Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.5, */*;q=0.1" },
+        headers: { "User-Agent": userAgentFor(current), Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.5, */*;q=0.1" },
         redirect: "manual",
         signal: controller.signal,
       });

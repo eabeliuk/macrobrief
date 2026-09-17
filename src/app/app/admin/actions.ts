@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { PLAN_ORDER, type PlanId } from "@/lib/domain/plans";
+import { pollDueSources } from "@/lib/ingest";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/session";
 import { SHOWCASE_EMAIL } from "@/lib/showcase";
@@ -39,6 +40,20 @@ export async function setUserPlan(formData: FormData): Promise<void> {
   console.info(`[admin] ${admin.email} set ${user.email} → ${plan}`);
   revalidatePath("/app/admin");
   redirect("/app/admin");
+}
+
+/** Poll one source right now, regardless of its interval, and show the outcome. */
+export async function pollSource(formData: FormData): Promise<void> {
+  await requireSuperAdmin();
+  const id = String(formData.get("sourceId"));
+  const source = await prisma.source.findUnique({ where: { id } });
+  if (!source) redirect("/app/admin?error=source");
+  if (!source.enabled) await prisma.source.update({ where: { id }, data: { enabled: true, failCount: 0 } });
+  const result = await pollDueSources(new Date(), { sourceIds: [id] });
+  const after = await prisma.source.findUnique({ where: { id } });
+  revalidatePath("/app/admin");
+  const msg = result.ok ? `Polled ${source.title ?? source.url}: ${result.inserted} new items.` : `Poll failed: ${after?.lastError ?? "unknown error"}`;
+  redirect(`/app/admin?${result.ok ? "notice" : "error"}=${encodeURIComponent(msg)}#sources`);
 }
 
 export async function toggleSource(formData: FormData): Promise<void> {
