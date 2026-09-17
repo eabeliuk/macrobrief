@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8">
+    <div className="mx-auto max-w-5xl px-5 py-8">
       <header className="flex items-center justify-between">
         <Wordmark />
         <div className="flex items-center gap-4 text-sm text-ink-2">

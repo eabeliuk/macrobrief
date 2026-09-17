@@ -95,7 +95,9 @@ export async function removeSource(formData: FormData): Promise<void> {
 
 const ScheduleInput = z.object({
   cadence: z.enum(["WEEKLY", "DAILY", "TWICE_DAILY"]),
-  hour: z.coerce.number().int().min(0).max(23),
+  // The form speaks a 12-hour clock; the schedule stores 0–23.
+  hour12: z.coerce.number().int().min(1).max(12),
+  meridiem: z.enum(["AM", "PM"]),
   weekday: z.coerce.number().int().min(0).max(6),
   timezone: z.string().min(1).max(64),
 });
@@ -110,10 +112,12 @@ export async function updateSchedule(formData: FormData): Promise<void> {
   } catch {
     redirect("/app?error=timezone");
   }
+  const { hour12, meridiem, weekday, timezone } = parsed.data;
+  const hour = (hour12 % 12) + (meridiem === "PM" ? 12 : 0);
   await prisma.schedule.upsert({
     where: { userId: user.id },
-    update: { ...parsed.data, cadence },
-    create: { userId: user.id, ...parsed.data, cadence },
+    update: { cadence, hour, weekday, timezone },
+    create: { userId: user.id, cadence, hour, weekday, timezone },
   });
   revalidatePath("/app");
   redirect("/app");

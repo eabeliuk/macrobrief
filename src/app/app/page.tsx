@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ScheduleForm } from "@/components/schedule-form";
 import { Field, Notice } from "@/components/ui";
 import { PLANS, cadenceAllowed, channelAllowed, type ChannelId } from "@/lib/domain/plans";
 import { prisma } from "@/lib/prisma";
@@ -110,32 +111,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="grid gap-6 sm:grid-cols-2">
-        <form action={updateSchedule} className="card space-y-3">
-          <h2 className="font-semibold">Schedule</h2>
-          <label className="block">
-            <span className="label mb-1">Cadence</span>
-            <select name="cadence" className="input" defaultValue={schedule?.cadence ?? "WEEKLY"}>
-              {(["WEEKLY", "DAILY", "TWICE_DAILY"] as const).map((c) => (
-                <option key={c} value={c} disabled={!cadenceAllowed(user.plan, c)}>
-                  {c.toLowerCase().replace("_", " ")}{cadenceAllowed(user.plan, c) ? "" : " — upgrade"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Hour (local)" name="hour" type="number" defaultValue={String(schedule?.hour ?? 7)} />
-            <label className="block">
-              <span className="label mb-1">Weekday (weekly)</span>
-              <select name="weekday" className="input" defaultValue={String(schedule?.weekday ?? 1)}>
-                {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((d, i) => (
-                  <option key={d} value={i}>{d}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <Field label="Timezone (IANA)" name="timezone" defaultValue={schedule?.timezone ?? "UTC"} placeholder="America/Santiago" />
-          <button type="submit" className="btn-quiet">Save schedule</button>
-        </form>
+        <ScheduleForm
+          action={updateSchedule}
+          cadence={schedule?.cadence ?? "WEEKLY"}
+          cadences={(["WEEKLY", "DAILY", "TWICE_DAILY"] as const).map((c) => ({ id: c, label: c.toLowerCase().replace("_", " "), allowed: cadenceAllowed(user.plan, c) }))}
+          hour={schedule?.hour ?? 7}
+          weekday={schedule?.weekday ?? 1}
+          timezone={schedule?.timezone ?? "UTC"}
+        />
 
         <div className="card space-y-4">
           <h2 className="font-semibold">Channels</h2>
