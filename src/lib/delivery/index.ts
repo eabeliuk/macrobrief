@@ -1,8 +1,13 @@
 import type { Delivery } from "@prisma/client";
 
+import { audioScript } from "@/lib/domain/audio";
 import { renderHtml, type Composed } from "@/lib/domain/brief";
+import { trackedUrl } from "@/lib/domain/tracking";
 import { sendEmail } from "@/lib/mailer";
 import { prisma } from "@/lib/prisma";
+import { siteUrl } from "@/lib/stripe/client";
+import { saveObject, storageConfigured } from "@/lib/storage";
+import { synthesize, ttsConfigured } from "@/lib/tts";
 
 /**
  * Sending. One row per (brief, channel); this walks the pending ones and
@@ -12,6 +17,8 @@ import { prisma } from "@/lib/prisma";
  */
 
 const MAX_ATTEMPTS = 3;
+/** Audio first, so the email that follows can link to it. */
+const CHANNEL_ORDER: Record<string, number> = { AUDIO: 0, EMAIL: 1, WHATSAPP: 2, INSTAGRAM: 3 };
 
 export type DeliverSummary = { sent: number; failed: number; skipped: number };
 
@@ -22,6 +29,7 @@ export async function deliverPending({ limit = 50 } = {}): Promise<DeliverSummar
     orderBy: { createdAt: "asc" },
     take: limit,
   });
+  pending.sort((a, b) => (CHANNEL_ORDER[a.channel] ?? 9) - (CHANNEL_ORDER[b.channel] ?? 9));
 
   const summary: DeliverSummary = { sent: 0, failed: 0, skipped: 0 };
   for (const delivery of pending) {
@@ -43,27 +51,45 @@ export async function deliverPending({ limit = 50 } = {}): Promise<DeliverSummar
 }
 
 type PendingDelivery = Delivery & {
-  brief: { title: string; bodyText: string; bodyMd: string; sections: { topicId: string; heading: string; stories: unknown }[] };
+  brief: { id: string; title: string; bodyText: string; bodyMd: string; sections: { topicId: string; heading: string; stories: unknown }[] };
 };
+
+function composedOf(brief: PendingDelivery["brief"]): Composed {
+  return {
+    title: brief.title,
+    sections: brief.sections.map((s) => ({ topicId: s.topicId, heading: s.heading, stories: s.stories as Composed["sections"][number]["stories"] })),
+  };
+}
 
 type Outcome = { status: "SENT" | "FAILED" | "SKIPPED"; error?: string };
 
 async function send(delivery: PendingDelivery): Promise<Outcome> {
   switch (delivery.channel) {
     case "EMAIL": {
-      const composed: Composed = {
-        title: delivery.brief.title,
-        sections: delivery.brief.sections.map((s) => ({ topicId: s.topicId, heading: s.heading, stories: s.stories as Composed["sections"][number]["stories"] })),
-      };
+      // Re-read: an AUDIO delivery earlier in this run may have set audioUrl.
+      const fresh = await prisma.brief.findUnique({ where: { id: delivery.brief.id }, select: { audioUrl: true } });
+      const listen = fresh?.audioUrl ? `${siteUrl()}${fresh.audioUrl}` : null;
       const result = await sendEmail({
         to: delivery.address,
         subject: delivery.brief.title,
-        text: delivery.brief.bodyText,
-        html: renderHtml(composed),
+        text: listen ? `Listen to this brief: ${listen}\n\n${delivery.brief.bodyText}` : delivery.brief.bodyText,
+        html: renderHtml(composedOf(delivery.brief), {
+          listenUrl: listen,
+          // Story links go through the signed redirect so opens are recorded.
+          linkFor: process.env.AUTH_SECRET ? (url) => trackedUrl(siteUrl(), delivery.id, url, process.env.AUTH_SECRET!) : undefined,
+        }),
       });
       return result.sent ? { status: "SENT" } : { status: "FAILED", error: result.error };
     }
-    case "AUDIO":
+    case "AUDIO": {
+      if (!ttsConfigured()) return { status: "FAILED", error: "audio not configured (ELEVENLABS_API_KEY)" };
+      if (!storageConfigured()) return { status: "FAILED", error: "audio storage not configured (AUDIO_BUCKET)" };
+      const mp3 = await synthesize(audioScript(composedOf(delivery.brief)));
+      await saveObject(`briefs/${delivery.brief.id}.mp3`, mp3, "audio/mpeg");
+      // The app streams it after an ownership check; the URL is never a public object.
+      await prisma.brief.update({ where: { id: delivery.brief.id }, data: { audioUrl: `/app/briefs/${delivery.brief.id}/audio` } });
+      return { status: "SENT" };
+    }
     case "WHATSAPP":
     case "INSTAGRAM":
       return { status: "SKIPPED", error: `${delivery.channel} delivery is not live yet` };

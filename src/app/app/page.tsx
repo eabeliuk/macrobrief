@@ -9,7 +9,7 @@ import { addTopic, briefNow, deleteTopic, setChannel, updateSchedule } from "./a
 
 const ERRORS: Record<string, string> = {
   topic: "A topic needs a name of at least two characters.",
-  limit: "Your plan's topic limit is reached. Remove one or upgrade.",
+  limit: "Your plan's topic limit is reached. Remove one, or upgrade under Billing.",
   schedule: "That schedule didn't make sense.",
   timezone: "Unknown timezone.",
   channel: "That channel setting didn't make sense.",
@@ -19,7 +19,7 @@ const ERRORS: Record<string, string> = {
 
 const CHANNEL_HELP: Record<Exclude<ChannelId, "WEB" | "TEXT">, { label: string; placeholder: string; note?: string }> = {
   EMAIL: { label: "Email", placeholder: "you@example.com" },
-  AUDIO: { label: "Audio", placeholder: "(sent with your email)", note: "Coming in M2." },
+  AUDIO: { label: "Audio", placeholder: "(no address needed)", note: "The brief read aloud — a player in the app and a Listen link in the email." },
   WHATSAPP: { label: "WhatsApp", placeholder: "+56 9 1234 5678", note: "Coming in M3." },
   INSTAGRAM: { label: "Instagram", placeholder: "@handle", note: "Coming in M3 — you DM the bot, it replies with your brief." },
 };

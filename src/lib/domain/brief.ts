@@ -44,7 +44,7 @@ const PROMPT_SUMMARY_CHARS = 600;
 
 export const SYSTEM_PROMPT = `You write MacroBrief: a short, factual news brief for one reader who follows a few topics and does not have time to read the sources.
 
-For each topic you receive candidate items (headline, publisher, date, link, snippet). Choose the stories that matter most for someone following that topic, merge duplicates that report the same event, and write each as a headline plus a two-to-three sentence summary that says what happened and why it matters. Cite exactly one link per story, chosen from the candidates — never invent a link or a fact that is not in the candidates. Prefer the most authoritative publisher when several report the same event. If a topic has no candidates worth reporting, return it with an empty story list. Write in the reader's language. No preamble, no sign-off.`;
+For each topic you receive candidate items (headline, publisher, date, link, snippet). Choose the stories that matter most for someone following that topic, merge duplicates that report the same event, and write each as a headline plus a two-to-three sentence summary that says what happened and why it matters. Cite exactly one link per story, chosen from the candidates — never invent a link or a fact that is not in the candidates. Prefer the most authoritative publisher when several report the same event. Only include a story if it is genuinely about the topic; never pad a section to reach the requested count — fewer good stories beat a full section, and a topic with nothing worth reporting gets an empty story list. Write in the reader's language. No preamble, no sign-off.`;
 
 export const ComposedSchema = z.object({
   title: z.string(),
@@ -127,19 +127,25 @@ function safeHref(link: string): string | null {
 }
 
 /** Minimal email HTML. Everything from the model is escaped; only http(s) links are linked. */
-export function renderHtml(c: Composed): string {
+export function renderHtml(
+  c: Composed,
+  { listenUrl = null, linkFor = (url: string) => url }: { listenUrl?: string | null; linkFor?: (url: string) => string } = {},
+): string {
   const out: string[] = [
-    `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#111;line-height:1.5">`,
+    `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#14161f;line-height:1.5">`,
+    `<p style="font-size:14px;font-weight:700;margin:0 0 16px">Macro<span style="color:#1d4ed8">Brief</span></p>`,
     `<h1 style="font-size:20px">${escapeHtml(c.title)}</h1>`,
   ];
+  const listen = listenUrl ? safeHref(listenUrl) : null;
+  if (listen) out.push(`<p><a href="${listen}" style="color:#1d4ed8;font-weight:600">▶ Listen to this brief</a></p>`);
   if (c.intro) out.push(`<p>${escapeHtml(c.intro)}</p>`);
   for (const section of c.sections) {
     out.push(`<h2 style="font-size:16px;margin-top:24px">${escapeHtml(section.heading)}</h2>`);
     if (!section.stories.length) out.push(`<p style="color:#666"><em>${NOTHING_NEW}</em></p>`);
     for (const story of section.stories) {
-      const href = safeHref(story.link);
+      const href = safeHref(story.link) ? safeHref(linkFor(story.link)) : null;
       const headline = escapeHtml(story.headline);
-      const title = href ? `<a href="${href}" style="color:#111">${headline}</a>` : headline;
+      const title = href ? `<a href="${href}" style="color:#1d4ed8">${headline}</a>` : headline;
       const publisher = story.publisher ? ` <span style="color:#666">— ${escapeHtml(story.publisher)}</span>` : "";
       out.push(`<p><strong>${title}</strong>${publisher}<br>${escapeHtml(story.summary)}</p>`);
     }

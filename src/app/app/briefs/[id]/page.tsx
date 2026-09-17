@@ -26,6 +26,13 @@ export default async function BriefPage({ params }: { params: Promise<{ id: stri
         </p>
       </div>
 
+      {brief.audioUrl ? (
+        <section className="card">
+          <h2 className="font-semibold">Listen</h2>
+          <audio controls preload="none" src={brief.audioUrl} className="mt-3 w-full" />
+        </section>
+      ) : null}
+
       {brief.sections.map((section) => {
         const stories = section.stories as unknown as Story[];
         return (

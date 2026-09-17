@@ -114,3 +114,21 @@ describe("renderHtml", () => {
     expect(html).not.toContain("javascript:");
   });
 });
+
+describe("renderHtml — link mapping", () => {
+  it("routes story links through the mapper but never maps an unsafe link into existence", () => {
+    const html = renderHtml(
+      {
+        title: "T",
+        sections: [{ topicId: "t", heading: "H", stories: [
+          { headline: "ok", summary: "s", link: "https://x.test/a", publisher: null },
+          { headline: "bad", summary: "s", link: "javascript:alert(1)", publisher: null },
+        ] }],
+      },
+      { linkFor: (u) => `https://t.test/r?to=${encodeURIComponent(u)}` },
+    );
+    expect(html).toContain('href="https://t.test/r?to=https%3A%2F%2Fx.test%2Fa"');
+    expect(html).not.toContain("javascript");
+    expect(html).not.toContain("to=javascript");
+  });
+});

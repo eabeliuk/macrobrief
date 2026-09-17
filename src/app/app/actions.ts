@@ -129,7 +129,8 @@ export async function setChannel(formData: FormData): Promise<void> {
   if (!parsed.success) redirect("/app?error=channel");
   const channel: ChannelId = parsed.data.channel;
   if (!channelAllowed(user.plan, channel)) redirect("/app?error=plan");
-  const address = parsed.data.address || (channel === "EMAIL" ? user.email ?? "" : "");
+  // AUDIO has no address: it lives in the app and rides along in the email.
+  const address = parsed.data.address || (channel === "EMAIL" ? user.email ?? "" : channel === "AUDIO" ? "app" : "");
   if (!address) redirect("/app?error=address");
   await prisma.deliveryChannel.upsert({
     where: { userId_channel: { userId: user.id, channel } },
