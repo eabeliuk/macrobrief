@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="flex items-center justify-between">
         <Wordmark />
         <div className="flex items-center gap-4 text-sm text-ink-2">
+          {user.isSuperAdmin ? <Link href="/app/admin" className="wire text-accent hover:underline">Admin</Link> : null}
           <Link href="/app/billing" className="rounded-full bg-accent-wash px-2 py-0.5 text-xs font-medium text-accent hover:underline">{PLANS[user.plan].name}</Link>
           <span>{user.email}</span>
           <form action={out}>

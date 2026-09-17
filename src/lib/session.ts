@@ -32,6 +32,13 @@ export async function requireUser(): Promise<User> {
   return user;
 }
 
+/** Platform staff only. Anyone else is sent to their own dashboard, not told the page exists. */
+export async function requireSuperAdmin(): Promise<User> {
+  const user = await requireUser();
+  if (!user.isSuperAdmin) redirect("/app");
+  return user;
+}
+
 /**
  * A topic the caller owns, or null. Every topic-scoped read and write goes
  * through here — an id in a URL is a guess anyone can make.

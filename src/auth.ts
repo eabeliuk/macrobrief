@@ -15,7 +15,10 @@ declare module "next-auth" {
 // degrades to "that button isn't there" instead of breaking sign-in entirely.
 const providers = [];
 if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
-  providers.push(Google);
+  // An invited reader exists as a User row before their first sign-in;
+  // linking the Google account to it by email is safe because Google only
+  // asserts verified addresses and the beta gate has already vetted it.
+  providers.push(Google({ allowDangerousEmailAccountLinking: true }));
 }
 if (process.env.AUTH_RESEND_KEY) {
   providers.push(Resend({ from: process.env.EMAIL_FROM || "MacroBrief <brief@macrobrief.com>" }));
@@ -27,8 +30,9 @@ export const enabledProviders = {
 };
 
 /**
- * Private beta: while ALLOWED_EMAILS is set, only those addresses can sign
- * in or sign up. Unset it to open the doors — the list is a temporary gate,
+ * Private beta: while ALLOWED_EMAILS is set, only those addresses — or an
+ * email a super-admin has already invited (a User row exists) — can sign in
+ * or sign up. Unset it to open the doors — the list is a temporary gate,
  * not the access model, so an empty value means "everyone", not "nobody".
  */
 export function allowedEmails(): string[] {
@@ -50,10 +54,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   pages: { signIn: "/login" },
   callbacks: {
-    signIn({ user }) {
+    async signIn({ user }) {
       const allowed = allowedEmails();
       if (!allowed.length) return true;
-      return Boolean(user.email && allowed.includes(user.email.toLowerCase()));
+      const email = user.email?.toLowerCase();
+      if (!email) return false;
+      if (allowed.includes(email)) return true;
+      return Boolean(await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id: true } }));
     },
     session({ session, user }) {
       if (session.user) session.user.id = user.id;

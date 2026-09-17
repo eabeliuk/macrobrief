@@ -1,0 +1,53 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+
+import { PLAN_ORDER, type PlanId } from "@/lib/domain/plans";
+import { prisma } from "@/lib/prisma";
+import { requireSuperAdmin } from "@/lib/session";
+import { SHOWCASE_EMAIL } from "@/lib/showcase";
+
+/** Invite = a User row. The beta gate admits any email that has one. */
+export async function inviteUser(formData: FormData): Promise<void> {
+  await requireSuperAdmin();
+  const parsed = z.string().trim().toLowerCase().email().safeParse(formData.get("email"));
+  if (!parsed.success) redirect("/app/admin?error=email");
+  const email = parsed.data;
+  const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+  if (existing) redirect(`/app/admin?notice=${encodeURIComponent(`${email} already has an account.`)}`);
+  await prisma.user.create({
+    data: {
+      email,
+      schedule: { create: {} },
+      channels: { create: { channel: "EMAIL", address: email, verified: true } },
+    },
+  });
+  revalidatePath("/app/admin");
+  redirect(`/app/admin?notice=${encodeURIComponent(`${email} invited — they can sign in with Google now.`)}`);
+}
+
+export async function setUserPlan(formData: FormData): Promise<void> {
+  const admin = await requireSuperAdmin();
+  const userId = String(formData.get("userId"));
+  const plan = String(formData.get("plan")) as PlanId;
+  if (!PLAN_ORDER.includes(plan)) redirect("/app/admin?error=plan");
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.email === SHOWCASE_EMAIL) redirect("/app/admin?error=user");
+  await prisma.user.update({ where: { id: userId }, data: { plan } });
+  console.info(`[admin] ${admin.email} set ${user.email} → ${plan}`);
+  revalidatePath("/app/admin");
+  redirect("/app/admin");
+}
+
+export async function toggleSource(formData: FormData): Promise<void> {
+  await requireSuperAdmin();
+  const id = String(formData.get("sourceId"));
+  const source = await prisma.source.findUnique({ where: { id } });
+  if (!source) redirect("/app/admin?error=source");
+  // Re-enabling clears the failure count so the poller gives it a fresh run.
+  await prisma.source.update({ where: { id }, data: { enabled: !source.enabled, failCount: source.enabled ? source.failCount : 0, lastError: null } });
+  revalidatePath("/app/admin");
+  redirect("/app/admin#sources");
+}
