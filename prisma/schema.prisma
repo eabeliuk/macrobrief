@@ -237,7 +237,11 @@ model DeliveryChannel {
   /// Email address, E.164 phone, or Instagram handle.
   address String
   enabled  Boolean @default(true)
-  verified Boolean @default(false)
+  /// Nothing is sent to an unverified address: an address that is not the
+  /// account's own email must prove it is the reader's with a code.
+  verified      Boolean   @default(false)
+  verifyCode    String?
+  verifyExpires DateTime?
 
   createdAt DateTime @default(now())
 

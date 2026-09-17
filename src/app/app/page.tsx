@@ -5,7 +5,7 @@ import { PLANS, cadenceAllowed, channelAllowed, type ChannelId } from "@/lib/dom
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
-import { addTopic, briefNow, deleteTopic, setChannel, updateSchedule } from "./actions";
+import { addTopic, briefNow, deleteTopic, setChannel, updateSchedule, verifyChannel } from "./actions";
 
 const ERRORS: Record<string, string> = {
   topic: "A topic needs a name of at least two characters.",
@@ -16,6 +16,8 @@ const ERRORS: Record<string, string> = {
   plan: "That channel isn't on your plan.",
   address: "That channel needs an address.",
   phone: "WhatsApp needs a full international number, like +56 9 1234 5678.",
+  codesend: "Saved, but the verification code couldn't be sent — that channel isn't configured on this deployment yet. Save again later to get a code.",
+  code: "That code didn't match or has expired. Save the address again for a new one.",
 };
 
 const CHANNEL_HELP: Record<Exclude<ChannelId, "WEB" | "TEXT">, { label: string; placeholder: string; note?: string }> = {
@@ -146,7 +148,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <form key={channel} action={setChannel} className="space-y-2 border-t border-rule pt-3 first:border-t-0 first:pt-0">
                 <input type="hidden" name="channel" value={channel} />
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{help.label}{allowed ? "" : <span className="ml-2 text-xs text-ink-3">upgrade</span>}</span>
+                  <span className="text-sm font-medium">
+                    {help.label}
+                    {allowed ? "" : <span className="ml-2 text-xs text-ink-3">upgrade</span>}
+                    {row && !row.verified ? <span className="wire ml-2 text-warn">unverified</span> : null}
+                  </span>
                   <label className="flex items-center gap-2 text-xs text-ink-2">
                     <input type="checkbox" name="enabled" defaultChecked={row?.enabled ?? false} disabled={!allowed} /> on
                   </label>
@@ -159,6 +165,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               </form>
             );
           })}
+          {channels.filter((c) => !c.verified && c.channel !== "AUDIO").map((c) => (
+            <form key={`verify-${c.channel}`} action={verifyChannel} className="flex items-end gap-2 border-t border-rule pt-3">
+              <input type="hidden" name="channel" value={c.channel} />
+              <div className="flex-1">
+                <span className="label mb-1">Verify {c.channel.toLowerCase()} · code sent to {c.address}</span>
+                <input className="input font-mono" name="code" inputMode="numeric" placeholder="123456" required />
+              </div>
+              <button type="submit" className="btn-quiet">Verify</button>
+            </form>
+          ))}
         </div>
       </section>
     </div>

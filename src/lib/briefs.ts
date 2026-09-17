@@ -72,7 +72,8 @@ export async function composeDueBriefs(now: Date, { limit = 25, userId }: { limi
 
       const lang = user.topics[0]?.lang ?? "en";
       const { composed, usage } = await compose({ periodLabel: periodLabel(cadence), lang, topics });
-      const sendTo = user.channels.filter((c) => channels.includes(c.channel) && SENDABLE.includes(c.channel));
+      // Only verified addresses receive anything — see domain/verification.ts.
+      const sendTo = user.channels.filter((c) => c.verified && channels.includes(c.channel) && SENDABLE.includes(c.channel));
 
       await prisma.brief.create({
         data: {

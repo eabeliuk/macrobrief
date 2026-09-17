@@ -7,8 +7,13 @@ import { z } from "zod";
 import { composeDueBriefs } from "@/lib/briefs";
 import { deliverPending } from "@/lib/delivery";
 import { normalizeQuery } from "@/lib/domain/discovery";
+import type { Channel } from "@prisma/client";
+
 import { cadenceAllowed, canAddTopic, channelAllowed, type CadenceId, type ChannelId } from "@/lib/domain/plans";
+import { CODE_TTL_MIN, codeMatches, needsVerification, newCode } from "@/lib/domain/verification";
 import { normalizeE164 } from "@/lib/domain/whatsapp";
+import { sendEmail } from "@/lib/mailer";
+import { sendWhatsApp, whatsappConfigured } from "@/lib/whatsapp";
 import { pollDueSources } from "@/lib/ingest";
 import { prisma } from "@/lib/prisma";
 import { ownedTopic, requireUser } from "@/lib/session";
@@ -139,13 +144,46 @@ export async function setChannel(formData: FormData): Promise<void> {
     address = phone;
   }
   if (!address) redirect("/app?error=address");
+
+  const existing = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
+  const unchanged = existing?.address === address;
+  const challenge = needsVerification(channel, address, user.email);
+  // A verified address stays verified; a new or changed one that needs
+  // proving starts unverified with a fresh code.
+  const verified = unchanged ? existing.verified : !challenge;
+  const code = challenge && !verified ? newCode() : null;
+
   await prisma.deliveryChannel.upsert({
     where: { userId_channel: { userId: user.id, channel } },
-    update: { address, enabled: parsed.data.enabled },
-    create: { userId: user.id, channel, address, enabled: parsed.data.enabled, verified: channel === "EMAIL" && address === user.email },
+    update: { address, enabled: parsed.data.enabled, verified, ...(code ? { verifyCode: code, verifyExpires: new Date(Date.now() + CODE_TTL_MIN * 60_000) } : {}) },
+    create: { userId: user.id, channel, address, enabled: parsed.data.enabled, verified, verifyCode: code, verifyExpires: code ? new Date(Date.now() + CODE_TTL_MIN * 60_000) : null },
   });
   revalidatePath("/app");
+  if (code) {
+    const sent = await sendCode(channel, address, code);
+    redirect(sent ? `/app?notice=${encodeURIComponent(`Code sent to ${address} — enter it below to verify.`)}` : `/app?error=codesend`);
+  }
   redirect("/app");
+}
+
+async function sendCode(channel: ChannelId, address: string, code: string): Promise<boolean> {
+  const text = `Your MacroBrief verification code is ${code}. It expires in ${CODE_TTL_MIN} minutes.`;
+  if (channel === "EMAIL") return (await sendEmail({ to: address, subject: `${code} is your MacroBrief code`, text })).sent;
+  if (channel === "WHATSAPP" && whatsappConfigured()) {
+    return (await sendWhatsApp(address, { title: "MacroBrief code", body: text, link: "", text })).sent;
+  }
+  return false;
+}
+
+export async function verifyChannel(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const channel = String(formData.get("channel")) as ChannelId;
+  const row = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel: channel as Channel } } });
+  if (!row) redirect("/app?error=channel");
+  if (!codeMatches(String(formData.get("code") ?? ""), row.verifyCode, row.verifyExpires, new Date())) redirect("/app?error=code");
+  await prisma.deliveryChannel.update({ where: { id: row.id }, data: { verified: true, verifyCode: null, verifyExpires: null } });
+  revalidatePath("/app");
+  redirect(`/app?notice=${encodeURIComponent(`${row.address} verified.`)}`);
 }
 
 /** "Brief me now": poll this user's sources, compose the due period if missing, deliver. */
