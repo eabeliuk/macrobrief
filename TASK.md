@@ -35,6 +35,12 @@
 - [x] Showcase topics (system user) feed the live sheet; seeded by the cron
 - [ ] sitemap + robots; add row to `.claude/skills/gcp-deploy/SKILL.md` table
 
+## Hardening (2026-09-17)
+- [x] SSRF guard on every server-side fetch (metadata server, loopback, RFC1918, link-local; redirects checked per hop)
+- [x] Delivery addresses other than the account email must be verified by code before any send
+- [x] robots + sitemap (dynamic — build has no site URL)
+- [x] deploy.sh refuses to start while a build is running (two in flight race on the Cloud Run revision)
+
 ## Discovered during work
 - Bare Google/Bing news queries return relevance-ranked, years-old stories (70/73 >30d); fixed with `when:7d` / `interval="8"`.
 - Instagram cannot be a push channel (24 h window rule) — modelled as "DM the bot".

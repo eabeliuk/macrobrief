@@ -353,6 +353,11 @@ if [ "$DRY_RUN" = true ]; then
   info "Dry run — would execute:"; printf '  %q ' "${CMD[@]}"; echo; exit 0
 fi
 
+# Two builds in flight race on the Cloud Run revision and the loser fails
+# with "Conflict for resource": refuse to start a second one.
+ONGOING="$(gcloud builds list --ongoing --project="$PROJECT_ID" --format='value(id)' 2>/dev/null | head -1 || true)"
+[ -z "$ONGOING" ] || fail "A build is already running (${ONGOING}). Wait for it, or cancel: gcloud builds cancel ${ONGOING} --project=${PROJECT_ID}"
+
 info "Submitting Cloud Build to project ${PROJECT_ID}…"
 info "Pipeline: build → push → migrate (Cloud Run Job) → deploy. ~4–8 minutes."
 "${CMD[@]}"
