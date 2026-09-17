@@ -1,9 +1,11 @@
 import Link from "next/link";
 
-export function Wordmark() {
+import { Logotype } from "@/components/marks";
+
+export function Wordmark({ height = 26 }: { height?: number }) {
   return (
-    <Link href="/" className="text-lg font-semibold tracking-tight">
-      Macro<span className="text-accent">Brief</span>
+    <Link href="/" aria-label="MacroBrief home">
+      <Logotype height={height} />
     </Link>
   );
 }

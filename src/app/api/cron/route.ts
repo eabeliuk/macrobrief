@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { composeDueBriefs } from "@/lib/briefs";
 import { deliverPending } from "@/lib/delivery";
 import { pollDueSources, pruneItems } from "@/lib/ingest";
+import { ensureShowcase } from "@/lib/showcase";
 
 /**
  * The scheduled half of the product. Called by Cloud Scheduler every ten
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
+  await ensureShowcase();
   const ingest = await pollDueSources(now);
   const compose = await composeDueBriefs(now);
   const deliver = await deliverPending();

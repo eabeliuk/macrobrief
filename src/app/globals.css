@@ -1,15 +1,24 @@
 @import "tailwindcss";
 
-/* Placeholder palette — an /art-direction pass is scheduled for M4. */
+/* Brand tokens are brandbook/tokens.css (ink, signal, paper, paper-dark);
+ * the working shades below are derived from them — ink-2/ink-3 are the ink
+ * at lower strength, rule is paper darkened, wash is the signal at ~8%.
+ * A full /art-direction pass on the landing page is scheduled for M4. */
 :root {
-  --ink: #14161a;
-  --ink-2: #4b5059;
-  --ink-3: #868c96;
-  --page: #f7f7f5;
+  --mb-ink: #14161f;
+  --mb-signal: #1d4ed8;
+  --mb-paper: #f4f5f8;
+  --mb-paper-dark: #0f1117;
+
+  --ink: var(--mb-ink);
+  --ink-2: #4a4e5c;
+  --ink-3: #80848f;
+  --page: var(--mb-paper);
   --card: #ffffff;
-  --rule: #e4e5e1;
-  --accent: #1f5eff;
-  --accent-wash: #e8eeff;
+  --rule: #e1e3e9;
+  --accent: var(--mb-signal);
+  --accent-wash: #e8edfb;
+  --dark: var(--mb-paper-dark);
   --warn: #b3402f;
 }
 
@@ -22,7 +31,20 @@
   --color-rule: var(--rule);
   --color-accent: var(--accent);
   --color-accent-wash: var(--accent-wash);
+  --color-dark: var(--dark);
   --color-warn: var(--warn);
+  --font-sans: var(--font-open-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* The sheet's conventions: slugs and figures in the wire face, tabular. */
+.wire {
+  @apply font-mono text-[11px] uppercase tracking-[0.06em];
+  font-variant-numeric: tabular-nums;
+}
+.fig {
+  @apply font-mono;
+  font-variant-numeric: tabular-nums;
 }
 
 body {
@@ -31,7 +53,7 @@ body {
 }
 
 .btn {
-  @apply inline-flex items-center justify-center rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40;
+  @apply inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40;
 }
 .btn-quiet {
   @apply inline-flex items-center justify-center rounded-md border border-rule bg-card px-4 py-2 text-sm font-medium text-ink hover:bg-page disabled:opacity-40;

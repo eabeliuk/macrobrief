@@ -22,7 +22,7 @@ const VERIFY_CONCURRENCY = 4;
 
 export type AttachResult = { query: number; suggested: number; rejected: string[] };
 
-export async function attachSourcesForTopic(topic: Topic): Promise<AttachResult> {
+export async function attachSourcesForTopic(topic: Topic, { suggest = true } = {}): Promise<AttachResult> {
   const result: AttachResult = { query: 0, suggested: 0, rejected: [] };
 
   for (const q of queryFeedUrls(topic.query, topic.lang)) {
@@ -30,6 +30,7 @@ export async function attachSourcesForTopic(topic: Topic): Promise<AttachResult>
     result.query++;
   }
 
+  if (!suggest) return result;
   if (!anthropicConfigured()) {
     console.info("[sources] ANTHROPIC_API_KEY unset — skipping publisher suggestions");
     return result;
