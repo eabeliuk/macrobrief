@@ -63,7 +63,8 @@ solid object.
 | `logos/favicon.svg` | Square canvas, mark's true bbox centred, dark-ground colours. |
 | `tokens.css` | The palette as custom properties. |
 
-`brandbook/build.py` **generates every SVG here** from one set of constants.
+`brandbook/build.py` **generates every SVG here** from one set of constants,
+plus `brandbook.html`; `--pdf` prints `brandbook-MacroBrief.pdf` through Chrome.
 Edit the constants and re-run it; never hand-edit the files.
 
 The Sakamoto Labs portfolio carries a copy of `isotype-dark-bg.svg` at

@@ -5,10 +5,13 @@ Generate every MacroBrief brand asset from one set of constants.
 The logo files and the favicon all come from the numbers below, so a change to
 the mark is a change to a constant and a re-run — hand-kept copies drift.
 
-    python3 brandbook/build.py
+    python3 brandbook/build.py           # SVGs + brandbook.html
+    python3 brandbook/build.py --pdf     # ...and print the PDF (needs Chrome)
 """
 
 import os
+import subprocess
+import sys
 
 # The family canvas, inherited unchanged.
 CANVAS_W, CANVAS_H = 1000.0, 698.86
@@ -164,6 +167,275 @@ def write_logos():
     return sorted(files)
 
 
+# ---------------------------------------------------------------------------
+# The document
+# ---------------------------------------------------------------------------
+
+def bare(m=INK, body=SIGNAL):
+    """An isotype with no XML prolog, for embedding straight into the page."""
+    return isotype(m, body).split("-->", 1)[1].strip()
+
+
+def m_edge_y(x):
+    """y of the M's inner top edge at x — the line the globe hides behind."""
+    x0, y0, dx, dy = 35.71, 255.15, 429.49, 197.97
+    x = min(x, CANVAS_W - x)  # symmetric
+    return y0 + (x - x0) * dy / dx
+
+
+def construction_diagram():
+    """The globe's full circle, the M's edge, and where the one hides the other."""
+    ry = R * FORESHORTEN
+    ticks = "".join(
+        f'<circle cx="{x:.0f}" cy="{y:.0f}" r="6" fill="{SIGNAL}"/>'
+        for x, y in [(CX, GY - R), (CX - R, GY), (CX + R, GY), (CX, GY + R)]
+    )
+    return f'''<svg viewBox="80 -10 840 780" xmlns="http://www.w3.org/2000/svg">
+  <path fill="{INK}" opacity="0.08" d="{M_PATH}"/>
+  <path fill="none" stroke="{INK}" stroke-width="2" d="{M_PATH}"/>
+  <circle cx="{CX:.0f}" cy="{GY:.0f}" r="{R:.0f}" fill="{SIGNAL}" opacity="0.08"/>
+  <circle cx="{CX:.0f}" cy="{GY:.0f}" r="{R:.0f}" fill="none" stroke="{SIGNAL}" stroke-width="3.5" stroke-dasharray="14 10"/>
+  <ellipse cx="{CX:.0f}" cy="{GY:.0f}" rx="{R:.0f}" ry="{ry:.1f}" fill="none" stroke="{SIGNAL}" stroke-width="2"/>
+  <ellipse cx="{CX:.0f}" cy="{GY:.0f}" rx="{ry:.1f}" ry="{R:.0f}" fill="none" stroke="{SIGNAL}" stroke-width="2"/>
+  <line x1="{CX-R:.0f}" y1="{GY:.0f}" x2="{CX+R:.0f}" y2="{GY:.0f}" stroke="{SIGNAL}" stroke-width="2"/>
+  {ticks}
+  <g font-family="IBM Plex Mono, monospace" font-size="17" fill="{INK}">
+    <text x="{CX:.0f}" y="{CANVAS_H+46:.0f}" text-anchor="middle">centre (500, {GY:.0f}) &#183; r {R:.0f} &#183; top y = {GY-R:.0f} &#183; bottom y = {GY+R:.0f}, hidden</text>
+  </g>
+</svg>'''
+
+
+def fused():
+    """What the one-ink mark becomes without the gap — the mistake, shown."""
+    ry = R * FORESHORTEN
+    return (
+        f'<svg viewBox="0 0 1000 698.86" xmlns="http://www.w3.org/2000/svg">'
+        f'<mask id="nogap"><rect width="1000" height="698.86" fill="#fff"/>'
+        f'<ellipse cx="{CX:.0f}" cy="{GY:.0f}" rx="{R:.0f}" ry="{ry:.1f}" fill="none" stroke="#000" stroke-width="{SEAM}"/>'
+        f'<ellipse cx="{CX:.0f}" cy="{GY:.0f}" rx="{ry:.1f}" ry="{R:.0f}" fill="none" stroke="#000" stroke-width="{SEAM}"/>'
+        f'<line x1="{CX-R:.0f}" y1="{GY:.0f}" x2="{CX+R:.0f}" y2="{GY:.0f}" stroke="#000" stroke-width="{SEAM}"/></mask>'
+        f'<circle cx="{CX:.0f}" cy="{GY:.0f}" r="{R:.0f}" fill="{INK}" mask="url(#nogap)"/>'
+        f'<path fill="{INK}" d="{M_PATH}"/></svg>'
+    )
+
+
+FAMILY = [
+    ("MacroPrimer", "three tiles, scattered", "dispersed knowledge"),
+    ("MacroAccount", "four tiles, one block", "accounts resolving into one position"),
+    ("MacroKB", "one tile, cut in strata", "one body of knowledge in layers"),
+    ("MacroBrief", "a globe, rising behind the M", "the world behind; the M selects what reaches you"),
+]
+
+CSS = """
+@page { size: Letter; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --ink:%(ink)s; --signal:%(signal)s; --paper:%(paper)s; --rule:#d6d2d8; --rule2:#a09aa4; --ink2:#524a57; }
+body { font-family: Archivo, system-ui, sans-serif; color: var(--ink); background: var(--paper);
+  font-size: 10.5pt; line-height: 1.55; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 8.5in; height: 11in; padding: .72in .78in; page-break-after: always;
+  position: relative; display: flex; flex-direction: column; }
+.page:last-child { page-break-after: auto; }
+.folio { position:absolute; bottom:.42in; left:.78in; right:.78in; display:flex; justify-content:space-between;
+  font-family:"IBM Plex Mono",monospace; font-size:7.5pt; color:#8b8590; border-top:1px solid var(--rule); padding-top:5px; }
+h1 { font-size: 21pt; font-weight: 700; letter-spacing:-.025em; line-height:1.05; }
+h2 { font-family:"IBM Plex Mono",monospace; font-size:8pt; text-transform:uppercase;
+  letter-spacing:.13em; color:var(--ink2); margin-bottom:9px; }
+p { max-width: 62ch; margin-bottom: 9px; }
+.lede { font-size: 12pt; color: var(--ink2); max-width: 52ch; }
+table { width:100%%; border-collapse:collapse; margin: 8px 0 4px; }
+th { font-family:"IBM Plex Mono",monospace; font-size:7.5pt; text-transform:uppercase; letter-spacing:.11em;
+  color:var(--ink2); text-align:left; font-weight:500; border-bottom:1px solid var(--rule2); padding: 0 8px 5px 0; }
+td { padding: 6px 8px 6px 0; border-bottom:1px solid var(--rule); font-size:9.5pt; vertical-align:top; }
+tr.me td { font-weight:700; } tr.me td:first-child { color: var(--signal); }
+.mono { font-family:"IBM Plex Mono",monospace; font-variant-numeric: tabular-nums; }
+.sws { display:flex; gap:.26in; margin-top:10px; }
+.sw { flex:1; } .chip { height:.85in; border:1px solid var(--rule2); margin-bottom:7px; }
+.swname { font-weight:600; font-size:9.5pt; }
+.swhex { font-family:"IBM Plex Mono",monospace; font-size:8.5pt; color:var(--ink2); }
+.swrole { font-size:8.5pt; color:var(--ink2); margin-top:3px; }
+.dark { background:%(paper_dark)s; padding:.2in; } .grey { background:#8a8590; padding:.2in; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:.3in; align-items:end; }
+.cap { font-family:"IBM Plex Mono",monospace; font-size:7.5pt; color:var(--ink2); margin-top:6px;
+  text-transform:uppercase; letter-spacing:.1em; }
+.never { padding-left:16px; max-width:62ch; } .never li { margin-bottom:6px; }
+.sizes { display:flex; gap:.3in; align-items:flex-end; margin-top:10px; }
+.rule-strong { border-bottom:2px solid var(--ink); margin: 10px 0 16px; }
+svg { display:block; width:100%%; height:auto; }
+""" % {"ink": INK, "signal": SIGNAL, "paper": PAPER, "paper_dark": PAPER_DARK}
+
+
+def swatch(hexv, name, role):
+    return (f'<div class="sw"><div class="chip" style="background:{hexv}"></div>'
+            f'<div class="swname">{name}</div><div class="swhex">{hexv}</div>'
+            f'<div class="swrole">{role}</div></div>')
+
+
+def build_html():
+    rows = "".join(
+        '<tr class="%s"><td>%s</td><td>%s</td><td>%s</td></tr>'
+        % ("me" if n == "MacroBrief" else "", n, t, s)
+        for n, t, s in FAMILY
+    )
+    sw = (swatch(INK, "Ink", "Text ink, pulled slightly toward the signal hue.")
+          + swatch(SIGNAL, "Signal", "The brand colour. Unclaimed in the family.")
+          + swatch(PAPER, "Paper", "Paper.")
+          + swatch(PAPER_DARK, "Paper, inverted", "The same in the dark."))
+    lock = open(os.path.join(LOGOS, "imagotipo.svg")).read().split("-->", 1)[1].strip()
+    lock_dark = open(os.path.join(LOGOS, "imagotipo-dark-bg.svg")).read().split("-->", 1)[1].strip()
+    white = "#ffffff"
+
+    parts = [
+        '<!doctype html><html><head><meta charset="utf-8"><title>MacroBrief Brandbook</title>'
+        '<link rel="preconnect" href="https://fonts.googleapis.com">'
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
+        'family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600'
+        '&family=Open+Sans:wght@700&display=swap">'
+        '<style>' + CSS + '</style></head><body>',
+
+        # Cover
+        '<section class="page"><div style="flex:1;display:flex;flex-direction:column;justify-content:center;">'
+        '<div style="width:3.5in;margin-bottom:.42in;">' + bare() + '</div>'
+        '<h1 style="font-size:34pt;">MacroBrief</h1>'
+        '<p class="lede" style="margin-top:10px;">Brandbook &mdash; the mark, its construction, and the rules '
+        'that keep it a Macro brand.</p></div>'
+        '<div class="folio"><span>MacroBrief &mdash; Brandbook</span><span class="mono">2026</span></div></section>',
+
+        # The mark
+        '<section class="page"><h1>The mark</h1><div class="rule-strong"></div>'
+        '<p>MacroBrief inherits the family&rsquo;s isometric <strong>M</strong> on the family canvas '
+        '<span class="mono">0 0 1000 698.86</span>, and seats its object in the M&rsquo;s notch on the '
+        'same band the sibling marks put their rhombus tiles on &mdash; but, unlike them, it draws the '
+        'object <strong>behind</strong> the M.</p>'
+        '<p>What sits in the notch is what differs, and it is the only part that carries meaning.</p>'
+        '<table><thead><tr><th>Brand</th><th>In the notch</th><th>Says</th></tr></thead><tbody>' + rows + '</tbody></table>'
+        '<p style="margin-top:12px;">The globe is the news icon everyone already reads, drawn the way those '
+        'icons are: a disc with its <strong>equator and one meridian</strong> knocked out, plus the horizon. '
+        'It is large &mdash; the mark&rsquo;s subject, not an ornament &mdash; and seated low, so the '
+        'M&rsquo;s V cuts its lower third and the whole bottom arc is hidden. The world is behind; the M, '
+        'in front, is the thing that decides what gets through.</p>'
+        '<div class="grid2" style="margin-top:.18in;">'
+        '<div><div style="width:2.6in;">' + bare() + '</div><div class="cap">Isotype &mdash; on light</div></div>'
+        '<div><div class="dark" style="width:2.9in;">' + bare(SIGNAL, white) + '</div>'
+        '<div class="cap">On dark</div></div></div>'
+        '<div class="folio"><span>&sect;1 The mark</span><span class="mono">2</span></div></section>',
+
+        # Construction
+        '<section class="page"><h1>Construction</h1><div class="rule-strong"></div>'
+        '<p>Geometry is <strong>derived, not drawn</strong>. Every asset in this book is generated from '
+        'these constants by <span class="mono">brandbook/build.py</span>.</p>'
+        '<div style="width:5.4in;margin:.1in 0 .04in;">' + construction_diagram() + '</div>'
+        '<div class="cap" style="margin-bottom:.16in;">The full circle, dashed, and the M it hides behind</div>'
+        '<p class="mono" style="font-size:9pt;">'
+        f'globe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;centre (500, {GY:.0f}) &middot; r {R:.0f}<br>'
+        f'graticule&nbsp;&nbsp;equator rx {R:.0f} &middot; ry {R*FORESHORTEN:.1f} &nbsp;(foreshorten {FORESHORTEN})<br>'
+        f'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;meridian rx {R*FORESHORTEN:.1f} &middot; ry {R:.0f}<br>'
+        f'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;horizon y = {GY:.0f} &middot; knock-out {SEAM}<br>'
+        f'gap&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the M&rsquo;s outline, knocked out at {SEAM}, globe side</p>'
+        '<p style="margin-top:8px;">The centre and radius are chosen together: the top clears '
+        '<span class="mono">y = 0</span>, and at every x the circle&rsquo;s lower arc lies below the '
+        'M&rsquo;s inner edge, so nothing of the bottom shows through the notch. Move one and the other '
+        'must move with it.</p>'
+        '<div class="folio"><span>&sect;2 Construction</span><span class="mono">3</span></div></section>',
+
+        # Graticule and gap
+        '<section class="page"><h1>The graticule and the gap</h1><div class="rule-strong"></div>'
+        '<p>The equator, meridian and horizon are <strong>knocked out as transparent lines</strong> '
+        f'(<span class="mono">width {SEAM}</span>) in <strong>every</strong> variant, not only the single-ink '
+        'ones. Filled solid, the globe is a plain disc &mdash; a coin, a period &mdash; and the idea is gone.</p>'
+        '<p>The same knock-out runs along the <strong>M&rsquo;s top edge</strong>, one seam wide, on the '
+        'globe&rsquo;s side. Without it the one-ink variants fuse globe and M into a single blob, and the '
+        '&ldquo;behind&rdquo; reading &mdash; which is the mark &mdash; is lost.</p>'
+        '<div class="grid2" style="margin-top:.18in;">'
+        '<div><div style="width:2.5in;">' + fused() + '</div><div class="cap">No gap &mdash; wrong</div></div>'
+        '<div><div style="width:2.5in;">' + bare(INK, INK) + '</div><div class="cap">One ink, with the gap</div></div></div>'
+        '<div class="grid2" style="margin-top:.22in;">'
+        '<div><div class="dark" style="width:2.7in;">' + bare(white, white) + '</div>'
+        '<div class="cap">White on dark</div></div>'
+        '<div><div class="grey" style="width:2.7in;">' + bare(white, white) + '</div>'
+        '<div class="cap">White on mid grey &mdash; the knock-outs show through</div></div></div>'
+        '<div class="folio"><span>&sect;3 Graticule &amp; gap</span><span class="mono">4</span></div></section>',
+
+        # Colour
+        '<section class="page"><h1>Colour</h1><div class="rule-strong"></div>'
+        '<div class="sws">' + sw + '</div>'
+        '<h2 style="margin-top:.3in;">Why fuchsia</h2>'
+        '<p>An alerts product needs an accent that says <em>look here</em> and still cannot be mistaken '
+        'for an error: red is the one colour every interface already spends on failure, and it is '
+        'MacroMkt&rsquo;s besides. Fuchsia has the urgency without the meaning.</p>'
+        '<p>It is also unclaimed across the family: MacroBP gold, MacroReply violet, MacroPrimer green, '
+        'MacroSkill indigo, MacroAccount blue, MacroKB lime, MacroLinker cyan.</p>'
+        '<h2 style="margin-top:.26in;">Where each colour goes</h2>'
+        '<table><thead><tr><th>Ground</th><th>M</th><th>Globe</th><th>Wordmark</th></tr></thead><tbody>'
+        '<tr><td>Light</td><td>Ink</td><td>Signal</td><td>Macro ink &middot; Brief signal</td></tr>'
+        '<tr><td>Dark</td><td>Signal</td><td>White</td><td>Macro white &middot; Brief signal</td></tr>'
+        '<tr><td>One ink</td><td colspan="3">Everything in the one ink; the knock-outs do the separating.</td></tr>'
+        '</tbody></table>'
+        '<div class="folio"><span>&sect;4 Colour</span><span class="mono">5</span></div></section>',
+
+        # Type
+        '<section class="page"><h1>Type</h1><div class="rule-strong"></div>'
+        '<table><thead><tr><th>Face</th><th>Where</th><th>Convention it follows</th></tr></thead><tbody>'
+        '<tr><td style="font-family:\'Open Sans\',sans-serif;font-weight:700;">Open Sans Bold</td>'
+        '<td>The wordmark, only</td><td>The family&rsquo;s face &mdash; the reason the lockup reads as a sibling.</td></tr>'
+        '<tr><td>&mdash;</td><td>Interface and marketing</td><td>The product&rsquo;s decision, not the brand&rsquo;s. Record it here when the product exists.</td></tr>'
+        '</tbody></table>'
+        '<h2 style="margin-top:.28in;">Lockup</h2><div style="width:5.4in;margin-top:8px;">' + lock + '</div>'
+        '<div class="dark" style="width:5.4in;margin-top:.16in;">' + lock_dark + '</div>'
+        '<p class="mono" style="margin-top:12px;font-size:9pt;">isotype scale(0.72) translate(0, 97.8) '
+        f'&middot; wordmark 440 / &minus;10 &middot; baseline y 512 from x {WORDMARK_X} &middot; canvas {LOCKUP_W} &times; 698.86</p>'
+        f'<p>The canvas width is that <span class="mono">{WORDMARK_X}</span> offset plus the wordmark&rsquo;s '
+        f'<strong>measured</strong> extent of <span class="mono">{WORDMARK_EXTENT}</span> &mdash; not a round '
+        'number chosen by eye. &ldquo;Macro&rdquo; carries the family; the suffix carries the brand.</p>'
+        '<div class="folio"><span>&sect;5 Type</span><span class="mono">6</span></div></section>',
+
+        # Size and never
+        '<section class="page"><h1>Clear space, size, and never</h1><div class="rule-strong"></div>'
+        f'<h2>Clear space</h2><p>Half the globe&rsquo;s radius on all sides &mdash; <span class="mono">{R/2:.1f}</span> '
+        'units, about <span class="mono">14%</span> of the mark&rsquo;s width. Nothing sets inside it.</p>'
+        '<h2 style="margin-top:.22in;">Minimum size</h2><div class="sizes">'
+        '<div><div style="width:1.15in;">' + bare() + '</div><div class="cap">64 px</div></div>'
+        '<div><div style="width:.6in;">' + bare() + '</div><div class="cap">32 px</div></div>'
+        '<div><div style="width:.45in;">' + bare() + '</div><div class="cap">24 px &mdash; the floor</div></div>'
+        '</div>'
+        '<p style="margin-top:12px;">Below about <span class="mono">20 px</span> the graticule closes and '
+        'the globe becomes a disc. Use <span class="mono">favicon.svg</span> at 16 px &mdash; it is centred '
+        'on the mark&rsquo;s true bounding box precisely because a 16 px tab cannot spare the height.</p>'
+        '<h2 style="margin-top:.28in;">Never</h2><ul class="never">'
+        '<li>Stretch the mark to fill a square. It is wider than tall; letterbox it.</li>'
+        '<li>Fill the graticule. Solid, the globe is a coin.</li>'
+        '<li>Put the globe in front of the M, or lift it clear of it. Behind is the point.</li>'
+        '<li>Add a dot, pin or badge to the globe. The M already does the selecting.</li>'
+        '<li>Redraw the M. It is shared with every Macro brand and is not ours to change.</li>'
+        '<li>Hand-edit the SVGs. Change the constants and re-run <span class="mono">build.py</span>.</li>'
+        '</ul><div class="folio"><span>&sect;6 Clear space &amp; never</span><span class="mono">7</span></div></section>',
+
+        "</body></html>",
+    ]
+    html = "".join(parts)
+    with open(os.path.join(HERE, "brandbook.html"), "w") as handle:
+        handle.write(html)
+    return len(html)
+
+
+CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+
+def build_pdf():
+    out = os.path.join(HERE, "brandbook-MacroBrief.pdf")
+    subprocess.run(
+        [CHROME, "--headless", "--disable-gpu", "--no-pdf-header-footer",
+         f"--print-to-pdf={out}", "--virtual-time-budget=20000",
+         "file://" + os.path.join(HERE, "brandbook.html")],
+        check=True, capture_output=True,
+    )
+    return out
+
+
 if __name__ == "__main__":
     written = write_logos()
     print(f"logos: {len(written)} files -> {LOGOS}")
+    size = build_html()
+    print(f"brandbook.html: {size} bytes")
+    if "--pdf" in sys.argv:
+        print("pdf:", build_pdf())
