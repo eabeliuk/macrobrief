@@ -23,17 +23,28 @@ export function normalizeQuery(query: string): string {
   return query.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Both engines rank a bare query by relevance and hand back years-old
+ * stories (measured: 70 of 73 Google results older than 30 days). Their
+ * recency operators fix that: Google's `when:7d`, Bing's `interval=8`
+ * (past week). A week is enough — the poller runs every half hour and the
+ * database is the accumulator, the feed only has to surface what is new.
+ */
+const GOOGLE_RECENCY = "when:7d";
+const BING_RECENCY = 'interval="8"';
+
 export function queryFeedUrls(query: string, lang: string): QueryFeed[] {
   const q = normalizeQuery(query);
   const edition = GOOGLE_EDITIONS[lang] ?? GOOGLE_EDITIONS.en;
   const google = new URL("https://news.google.com/rss/search");
-  google.searchParams.set("q", q);
+  google.searchParams.set("q", `${q} ${GOOGLE_RECENCY}`);
   google.searchParams.set("hl", edition.hl);
   google.searchParams.set("gl", edition.gl);
   google.searchParams.set("ceid", edition.ceid);
   const bing = new URL("https://www.bing.com/news/search");
   bing.searchParams.set("q", q);
   bing.searchParams.set("format", "rss");
+  bing.searchParams.set("qft", BING_RECENCY);
   // URLSearchParams encodes spaces as "+"; keep %20 so the stored URL matches
   // what a browser shows and dedupes with a hand-pasted one.
   return [

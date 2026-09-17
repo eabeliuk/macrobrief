@@ -12,12 +12,15 @@
 #   ./deploy.sh --dry-run       # print the command without running it
 #   ./deploy.sh --extra-args …  # pass anything else through to gcloud builds submit
 #
+#   SITE_URL=https://… ./deploy.sh   # override the origin baked into AUTH_URL
+#   YES=1 ./deploy.sh --setup-sql    # skip the billing confirmation prompt
+#
 # Project ID is hard-coded so you cannot deploy to the wrong GCP.
 
 set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────
-PROJECT_ID="macrobrief"
+PROJECT_ID="macrobrief1"
 REGION="us-central1"
 REPO="macrobrief"
 SERVICE="macrobrief-web"
@@ -26,6 +29,7 @@ DB_NAME="macrobrief"
 CLOUDBUILD_CONFIG="cloudbuild.yaml"
 DOMAIN="macrobrief.com"
 SCHEDULER_JOB="macrobrief-cron"
+AUDIO_BUCKET="${PROJECT_ID}-audio"
 
 # Every secret cloudbuild.yaml wires into the service. A deploy fails if one is
 # missing, so --secrets tells you before you burn a build.
@@ -36,8 +40,16 @@ REQUIRED_SECRETS=(
   macrobrief-google-secret
   macrobrief-resend-key
   macrobrief-anthropic-key
+  macrobrief-elevenlabs-key
+  macrobrief-elevenlabs-voice
+  macrobrief-stripe-secret
+  macrobrief-stripe-webhook-secret
+  macrobrief-stripe-price-starter
+  macrobrief-stripe-price-pro
+  macrobrief-stripe-price-max
   macrobrief-cron-secret
   macrobrief-super-admins
+  macrobrief-allowed-emails
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -61,6 +73,9 @@ if ! command -v gcloud >/dev/null 2>&1; then
   done
 fi
 command -v gcloud >/dev/null 2>&1 || fail "gcloud CLI not installed. https://cloud.google.com/sdk/docs/install"
+# gcloud otherwise stops to ask "enable this API?" / "install this component?"
+# on a fresh project — a hang in a non-interactive shell, not a question.
+export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 [ -f "$CLOUDBUILD_CONFIG" ] || fail "Missing $CLOUDBUILD_CONFIG — run from the repo root."
 
 ACTIVE_PROJECT="$(gcloud config get-value project 2>/dev/null || true)"
@@ -123,6 +138,16 @@ do_setup() {
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:${compute_sa}" --role="roles/cloudsql.client" --condition=None -q >/dev/null
 
+  if gcloud storage buckets describe "gs://${AUDIO_BUCKET}" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    info "Audio bucket gs://${AUDIO_BUCKET} already exists."
+  else
+    info "Creating private audio bucket gs://${AUDIO_BUCKET}…"
+    gcloud storage buckets create "gs://${AUDIO_BUCKET}" --project="$PROJECT_ID" --location="$REGION" \
+      --uniform-bucket-level-access --public-access-prevention
+  fi
+  gcloud storage buckets add-iam-policy-binding "gs://${AUDIO_BUCKET}" \
+    --member="serviceAccount:${compute_sa}" --role="roles/storage.objectAdmin" --project="$PROJECT_ID" >/dev/null
+
   info "Setup complete. Next: ./deploy.sh --setup-sql, then create the secrets, then ./deploy.sh"
 }
 
@@ -132,8 +157,10 @@ do_setup_sql() {
     info "Cloud SQL instance '$SQL_INSTANCE_NAME' already exists."
   else
     warn "Creating a Cloud SQL instance. This provisions billable infrastructure."
-    read -r -p "Continue? [y/N] " reply
-    [ "$reply" = "y" ] || [ "$reply" = "Y" ] || fail "Aborted."
+    if [ "${YES:-}" != "1" ]; then
+      read -r -p "Continue? [y/N] " reply
+      [ "$reply" = "y" ] || [ "$reply" = "Y" ] || fail "Aborted."
+    fi
 
     info "Creating Cloud SQL Postgres 16 instance '$SQL_INSTANCE_NAME'…"
     # Postgres 16 now defaults to the ENTERPRISE_PLUS edition, which rejects
@@ -244,9 +271,8 @@ DNS
 
 # ── Scheduled jobs ────────────────────────────────────────────────────
 #
-# One endpoint drives live-class reminders, the Monday digest, MicroRetention
-# and the application-fee resync. Every job inside it is idempotent, so a
-# ten-minute cadence is safe and a missed run is recoverable.
+# One endpoint drives ingest → compose → deliver → prune. Every job inside it
+# is idempotent, so a ten-minute cadence is safe and a missed run is recoverable.
 do_scheduler() {
   gcloud services enable cloudscheduler.googleapis.com --project="$PROJECT_ID"
 
@@ -298,8 +324,24 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# ── Which origin the app answers on ───────────────────────────────────
+#
+# AUTH_URL must match where requests arrive or OAuth callbacks and magic
+# links point at the wrong host. Use the custom domain once it is mapped,
+# the run.app URL until then, and nothing at all on the very first deploy
+# (trustHost then derives it from the request).
+site_url() {
+  if gcloud beta run domain-mappings describe --domain="$DOMAIN" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
+    echo "https://${DOMAIN}"
+  else
+    gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)' 2>/dev/null || true
+  fi
+}
+
 # ── Build command ─────────────────────────────────────────────────────
-CMD=(gcloud builds submit --config="$CLOUDBUILD_CONFIG" --project="$PROJECT_ID")
+SITE_URL="${SITE_URL:-$(site_url)}"
+info "Site URL for this deploy: ${SITE_URL:-<none — first deploy, derived from request host>}"
+CMD=(gcloud builds submit --config="$CLOUDBUILD_CONFIG" --project="$PROJECT_ID" --substitutions="_SITE_URL=${SITE_URL}")
 [ ${#EXTRA_ARGS[@]} -gt 0 ] && CMD+=("${EXTRA_ARGS[@]}")
 CMD+=(.)
 

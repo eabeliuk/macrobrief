@@ -6,13 +6,15 @@ import { describe, expect, it } from "vitest";
 import { discoverFeedLinks, looksLikeFeed, queryFeedUrls } from "@/lib/domain/discovery";
 
 describe("queryFeedUrls", () => {
-  it("builds a Google News and a Bing News search feed for the query", () => {
+  it("builds a Google News and a Bing News search feed for the query, restricted to the past week", () => {
     const urls = queryFeedUrls("lithium chile", "en");
     expect(urls.map((u) => u.kind)).toEqual(["GOOGLE_NEWS", "BING_NEWS"]);
     expect(urls[0].url).toBe(
-      "https://news.google.com/rss/search?q=lithium%20chile&hl=en-US&gl=US&ceid=US%3Aen",
+      "https://news.google.com/rss/search?q=lithium%20chile%20when%3A7d&hl=en-US&gl=US&ceid=US%3Aen",
     );
-    expect(urls[1].url).toBe("https://www.bing.com/news/search?q=lithium%20chile&format=rss");
+    expect(urls[1].url).toBe(
+      "https://www.bing.com/news/search?q=lithium%20chile&format=rss&qft=interval%3D%228%22",
+    );
   });
 
   it("localises Google News for Spanish", () => {

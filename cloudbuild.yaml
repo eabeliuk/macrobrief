@@ -13,11 +13,13 @@ substitutions:
   _REPO: macrobrief
   _SERVICE: macrobrief-web
   _MIGRATE_JOB: macrobrief-migrate
-  # The canonical origin. Checkout redirects, claim links, OAuth callbacks and
-  # webhook URLs are all built from this, so it must match where the service
-  # actually answers.
-  _SITE_URL: https://macrobrief.com
-  _SQL_INSTANCE: macrobrief:us-central1:macrobrief-db
+  # The origin the service answers on — deploy.sh fills this in (custom domain
+  # once mapped, run.app URL until then, empty on the first deploy). OAuth
+  # callbacks and magic links are built from it.
+  _SITE_URL: ""
+  _SQL_INSTANCE: macrobrief1:us-central1:macrobrief-db
+  # Private bucket for audio briefs; created by ./deploy.sh --setup.
+  _AUDIO_BUCKET: macrobrief1-audio
 
 steps:
   - id: build-web
@@ -96,10 +98,23 @@ steps:
         add AUTH_GOOGLE_SECRET macrobrief-google-secret
         add AUTH_RESEND_KEY macrobrief-resend-key
         add ANTHROPIC_API_KEY macrobrief-anthropic-key
+        add ELEVENLABS_API_KEY macrobrief-elevenlabs-key
+        add ELEVENLABS_VOICE_ID macrobrief-elevenlabs-voice
+        add STRIPE_SECRET_KEY macrobrief-stripe-secret
+        add STRIPE_WEBHOOK_SECRET macrobrief-stripe-webhook-secret
+        add STRIPE_PRICE_STARTER macrobrief-stripe-price-starter
+        add STRIPE_PRICE_PRO macrobrief-stripe-price-pro
+        add STRIPE_PRICE_MAX macrobrief-stripe-price-max
         add CRON_SECRET macrobrief-cron-secret
         add SUPER_ADMINS macrobrief-super-admins
+        add ALLOWED_EMAILS macrobrief-allowed-emails
 
         echo "Mapping secrets: $$SECRETS"
+
+        SITE_ENV=""
+        if [ -n "${_SITE_URL}" ]; then
+          SITE_ENV=",NEXT_PUBLIC_SITE_URL=${_SITE_URL},AUTH_URL=${_SITE_URL}"
+        fi
 
         # NOTE: --set-secrets REPLACES the whole set on every deploy. Anything
         # attached later with `gcloud run services update --update-secrets` is
@@ -114,7 +129,7 @@ steps:
           --cpu=1 --memory=512Mi \
           --min-instances=0 --max-instances=4 \
           --add-cloudsql-instances=${_SQL_INSTANCE} \
-          --set-env-vars=NEXT_PUBLIC_SITE_URL=${_SITE_URL},AUTH_URL=${_SITE_URL},AUTH_TRUST_HOST=true \
+          --set-env-vars="AUTH_TRUST_HOST=true,AUDIO_BUCKET=${_AUDIO_BUCKET}$${SITE_ENV}" \
           --set-secrets="$$SECRETS"
 
         # --allow-unauthenticated only warns in a non-interactive build, which

@@ -1,5 +1,6 @@
 import type { Source } from "@prisma/client";
 
+import { canonicalLink } from "@/lib/domain/relevance";
 import { fetchFeed } from "@/lib/fetch-feed";
 import { prisma } from "@/lib/prisma";
 import { mapWithConcurrency } from "@/lib/sources";
@@ -46,7 +47,7 @@ async function pollOne(source: Source, now: Date): Promise<{ ok: true; inserted:
     const rows = feed.entries.map((e) => ({
       sourceId: source.id,
       title: e.title,
-      link: e.link,
+      link: canonicalLink(e.link),
       summary: e.summary,
       publisher: e.publisher ?? source.publisher,
       imageUrl: e.imageUrl,

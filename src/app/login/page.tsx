@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
 
-import { enabledProviders, signIn } from "@/auth";
+import { enabledProviders, inviteOnly, signIn } from "@/auth";
 import { Field, Notice, Wordmark } from "@/components/ui";
 import { currentUser } from "@/lib/session";
 
 export const metadata = { title: "Sign in — MacroBrief" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ sent?: string }> }) {
-  const { sent } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ sent?: string; error?: string }> }) {
+  const { sent, error } = await searchParams;
   if (await currentUser()) redirect("/app");
 
   async function withGoogle() {
@@ -29,6 +29,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <p className="mt-2 text-ink-2">Your first brief is a couple of minutes away.</p>
 
       {sent ? <div className="mt-6"><Notice>Check your email for the link.</Notice></div> : null}
+      {error === "AccessDenied" ? (
+        <div className="mt-6"><Notice tone="warn">MacroBrief is in private beta and that account isn&apos;t on the list yet.</Notice></div>
+      ) : error ? (
+        <div className="mt-6"><Notice tone="warn">Sign-in failed ({error}). Try again.</Notice></div>
+      ) : null}
+      {inviteOnly() ? <p className="mt-4 text-xs text-ink-3">Private beta — sign-in is limited to invited accounts.</p> : null}
 
       <div className="mt-8 space-y-6">
         {enabledProviders.google ? (

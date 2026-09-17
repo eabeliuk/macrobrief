@@ -13,6 +13,7 @@ import {
 } from "@/lib/domain/brief";
 import { PLANS, effectiveDelivery, type ChannelId } from "@/lib/domain/plans";
 import { rankItems } from "@/lib/domain/ranking";
+import { isRelevant, queryTerms } from "@/lib/domain/relevance";
 import { duePeriod, periodLabel } from "@/lib/domain/schedule";
 import { prisma } from "@/lib/prisma";
 
@@ -112,7 +113,7 @@ async function gatherTopics(
 ): Promise<PromptTopic[]> {
   const out: PromptTopic[] = [];
   for (const topic of topics) {
-    const items = await prisma.item.findMany({
+    const fetched = await prisma.item.findMany({
       where: {
         source: { topics: { some: { topicId: topic.id } } },
         OR: [
@@ -120,9 +121,14 @@ async function gatherTopics(
           { publishedAt: null, fetchedAt: { gte: windowStart, lte: windowEnd } },
         ],
       },
+      include: { source: { select: { kind: true } } },
       orderBy: { publishedAt: "desc" },
       take: CANDIDATES_PER_TOPIC,
     });
+    // A publisher feed carries everything the outlet writes; gate its items
+    // on the query. Query feeds were filtered by the engine already.
+    const terms = queryTerms(topic.query);
+    const items = fetched.filter((i) => i.source.kind !== "RSS" || isRelevant(i, terms));
     const ranked = rankItems(
       items.map((i) => ({ ...i, publishedAt: i.publishedAt ?? i.fetchedAt })),
       PLANS[plan].storiesPerTopic * 2,

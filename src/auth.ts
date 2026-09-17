@@ -26,6 +26,22 @@ export const enabledProviders = {
   email: Boolean(process.env.AUTH_RESEND_KEY),
 };
 
+/**
+ * Private beta: while ALLOWED_EMAILS is set, only those addresses can sign
+ * in or sign up. Unset it to open the doors — the list is a temporary gate,
+ * not the access model, so an empty value means "everyone", not "nobody".
+ */
+export function allowedEmails(): string[] {
+  return (process.env.ALLOWED_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function inviteOnly(): boolean {
+  return allowedEmails().length > 0;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   // Cloud Run terminates TLS and forwards the host header.
@@ -34,6 +50,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   pages: { signIn: "/login" },
   callbacks: {
+    signIn({ user }) {
+      const allowed = allowedEmails();
+      if (!allowed.length) return true;
+      return Boolean(user.email && allowed.includes(user.email.toLowerCase()));
+    },
     session({ session, user }) {
       if (session.user) session.user.id = user.id;
       return session;
