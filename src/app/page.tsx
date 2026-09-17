@@ -137,13 +137,13 @@ export default async function LandingPage() {
           {[
             ["Email", "Live", "Plain text and HTML, one message per brief."],
             ["Plain text", "Live", "Every brief is stored as text you can copy or forward."],
-            ["Audio", "Pro · soon", "The brief read aloud, attached to the email and in the app."],
-            ["WhatsApp", "Pro · soon", "One message on the schedule, from a verified sender."],
+            ["Audio", "Pro", "The brief read aloud — a player in the app and a Listen link in the email."],
+            ["WhatsApp", "Pro", "A short digest on the schedule, with a link to the full brief."],
             ["Instagram", "Max · soon", "You DM the bot; it replies with your brief. Meta's rules, not ours."],
           ].map(([name, status, note]) => (
             <li key={name} className="grid grid-cols-[7rem_6rem_1fr] gap-3 py-2.5 text-sm">
               <span className="font-semibold">{name}</span>
-              <span className={`wire self-center ${status === "Live" ? "text-accent" : "text-ink-3"}`}>{status}</span>
+              <span className={`wire self-center ${status.includes("soon") ? "text-ink-3" : "text-accent"}`}>{status}</span>
               <span className="text-ink-2">{note}</span>
             </li>
           ))}

@@ -100,6 +100,10 @@ steps:
         add ANTHROPIC_API_KEY macrobrief-anthropic-key
         add ELEVENLABS_API_KEY macrobrief-elevenlabs-key
         add ELEVENLABS_VOICE_ID macrobrief-elevenlabs-voice
+        add TWILIO_ACCOUNT_SID macrobrief-twilio-sid
+        add TWILIO_AUTH_TOKEN macrobrief-twilio-token
+        add TWILIO_WHATSAPP_FROM macrobrief-twilio-whatsapp-from
+        add TWILIO_WA_TEMPLATE_SID macrobrief-twilio-wa-template
         add STRIPE_SECRET_KEY macrobrief-stripe-secret
         add STRIPE_WEBHOOK_SECRET macrobrief-stripe-webhook-secret
         add STRIPE_PRICE_STARTER macrobrief-stripe-price-starter

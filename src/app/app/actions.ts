@@ -8,6 +8,7 @@ import { composeDueBriefs } from "@/lib/briefs";
 import { deliverPending } from "@/lib/delivery";
 import { normalizeQuery } from "@/lib/domain/discovery";
 import { cadenceAllowed, canAddTopic, channelAllowed, type CadenceId, type ChannelId } from "@/lib/domain/plans";
+import { normalizeE164 } from "@/lib/domain/whatsapp";
 import { pollDueSources } from "@/lib/ingest";
 import { prisma } from "@/lib/prisma";
 import { ownedTopic, requireUser } from "@/lib/session";
@@ -130,7 +131,13 @@ export async function setChannel(formData: FormData): Promise<void> {
   const channel: ChannelId = parsed.data.channel;
   if (!channelAllowed(user.plan, channel)) redirect("/app?error=plan");
   // AUDIO has no address: it lives in the app and rides along in the email.
-  const address = parsed.data.address || (channel === "EMAIL" ? user.email ?? "" : channel === "AUDIO" ? "app" : "");
+  let address = parsed.data.address || (channel === "EMAIL" ? user.email ?? "" : channel === "AUDIO" ? "app" : "");
+  if (channel === "WHATSAPP") {
+    // Refuse a number without a country code rather than guess one.
+    const phone = address ? normalizeE164(address) : null;
+    if (!phone) redirect("/app?error=phone");
+    address = phone;
+  }
   if (!address) redirect("/app?error=address");
   await prisma.deliveryChannel.upsert({
     where: { userId_channel: { userId: user.id, channel } },

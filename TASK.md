@@ -21,10 +21,11 @@
 - [ ] Wire audio live: fill `macrobrief-elevenlabs-key` (+ optional `-voice`), redeploy
 
 ## M3 — channels
-- [ ] WhatsApp via Twilio (template message; reuse superMila sender + compliance)
+- [x] WhatsApp via Twilio: short digest + link; template (`TWILIO_WA_TEMPLATE_SID`) for outside Meta's 24 h window, free-form otherwise; E.164 enforced (no country-code guessing)
+- [ ] Wire WhatsApp live: `macrobrief-twilio-sid/-token/-whatsapp-from` (+ approved template SID), redeploy
 - [ ] Instagram DM bot (Max tier; user-initiated 24 h window)
 - [x] Click tracking: signed `/r/<deliveryId>?to&sig` redirect (HMAC with AUTH_SECRET, no open redirect) → `Click` rows + `Delivery.openedAt`
-- [ ] Use clicks as a ranking signal (publisher/topic affinity per reader)
+- [x] Clicks → ranking: per-reader publisher affinity (90 d, ≥3 clicks) lifts a tier-3 outlet to strong-tier-2 at most; never global
 
 ## M4 — ship
 - [x] Deployed 2026-09-17 to GCP `macrobrief1`: https://macrobrief-web-7puvvycxta-uc.a.run.app (Cloud SQL macrobrief-db, Scheduler every 10 min)

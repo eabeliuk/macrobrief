@@ -95,3 +95,18 @@ describe("rankItems", () => {
     expect(rankItems([], 5)).toEqual([]);
   });
 });
+
+describe("rankGroups — reader affinity", () => {
+  it("lifts a publisher the reader keeps opening, but not past a tier above", () => {
+    const items = [
+      item("blog", "Story A", "Small Blog", "2026-09-17T05:00:00Z"),
+      item("cnbc", "Story B", "CNBC", "2026-09-17T05:00:00Z"),
+      item("reuters", "Story C", "Reuters", "2026-09-17T05:00:00Z"),
+    ];
+    const plain = rankGroups(items).map((g) => g.canonical.id);
+    expect(plain).toEqual(["reuters", "cnbc", "blog"]);
+    // The reader opens Small Blog every time: it overtakes CNBC (tier 2) but not Reuters (tier 1).
+    const boosted = rankGroups(items, { affinity: (p) => (p === "Small Blog" ? 1 : 0) }).map((g) => g.canonical.id);
+    expect(boosted).toEqual(["reuters", "blog", "cnbc"]);
+  });
+});

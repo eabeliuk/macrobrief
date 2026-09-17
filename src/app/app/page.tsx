@@ -15,12 +15,13 @@ const ERRORS: Record<string, string> = {
   channel: "That channel setting didn't make sense.",
   plan: "That channel isn't on your plan.",
   address: "That channel needs an address.",
+  phone: "WhatsApp needs a full international number, like +56 9 1234 5678.",
 };
 
 const CHANNEL_HELP: Record<Exclude<ChannelId, "WEB" | "TEXT">, { label: string; placeholder: string; note?: string }> = {
   EMAIL: { label: "Email", placeholder: "you@example.com" },
   AUDIO: { label: "Audio", placeholder: "(no address needed)", note: "The brief read aloud — a player in the app and a Listen link in the email." },
-  WHATSAPP: { label: "WhatsApp", placeholder: "+56 9 1234 5678", note: "Coming in M3." },
+  WHATSAPP: { label: "WhatsApp", placeholder: "+56 9 1234 5678", note: "A short digest with a link to the full brief. Include the country code." },
   INSTAGRAM: { label: "Instagram", placeholder: "@handle", note: "Coming in M3 — you DM the bot, it replies with your brief." },
 };
 

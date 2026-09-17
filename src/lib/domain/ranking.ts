@@ -85,6 +85,17 @@ const TIER_2 = [
 ];
 
 const TIER_WEIGHT: Record<1 | 2 | 3, number> = { 1: 3, 2: 2, 3: 1 };
+/**
+ * How much a reader's own clicks can lift a publisher: at full affinity a
+ * tier-3 outlet scores like a strong tier-2 (1 × 2.2 > 2), never like tier 1.
+ * The editor's tiers stay the spine; the reader bends it, not breaks it.
+ */
+const MAX_AFFINITY_BOOST = 1.2;
+
+export type RankOptions = {
+  /** 0..1 — how much this reader opens this publisher's stories. */
+  affinity?: (publisher: string | null) => number;
+};
 const HEADLINE_PREFIX_CHARS = 80;
 const TIED_EPSILON = 1e-9;
 
@@ -115,7 +126,7 @@ function canonicalOf<T extends Rankable>(group: T[]): T {
   });
 }
 
-export function rankGroups<T extends Rankable>(items: T[]): RankingGroup<T>[] {
+export function rankGroups<T extends Rankable>(items: T[], options: RankOptions = {}): RankingGroup<T>[] {
   const groups = new Map<string, T[]>();
   items.forEach((item, index) => {
     // An empty signature must not merge unrelated unknowns.
@@ -130,12 +141,14 @@ export function rankGroups<T extends Rankable>(items: T[]): RankingGroup<T>[] {
     // Tier of the best publisher in the group, not just the canonical one —
     // if a blog was the freshest dupe the group still reflects that Reuters ran it.
     const bestTier = Math.min(...members.map((m) => publisherTier(m.publisher))) as 1 | 2 | 3;
+    // The group's affinity is its most-read member's, clamped to 0..1.
+    const affinity = options.affinity ? Math.min(1, Math.max(0, ...members.map((m) => options.affinity!(m.publisher)))) : 0;
     out.push({
       signature,
       members,
       canonical: canonicalOf(members),
       bestTier,
-      score: Math.log1p(members.length) * TIER_WEIGHT[bestTier],
+      score: Math.log1p(members.length) * (TIER_WEIGHT[bestTier] + MAX_AFFINITY_BOOST * affinity),
     });
   }
   out.sort((a, b) => b.score - a.score || b.canonical.publishedAt.getTime() - a.canonical.publishedAt.getTime());
@@ -165,6 +178,6 @@ function pickWithSpread<T extends Rankable>(groups: RankingGroup<T>[], maxN: num
 }
 
 /** Up to `maxN` canonical items, best first, spread across the window among ties. */
-export function rankItems<T extends Rankable>(items: T[], maxN: number): T[] {
-  return pickWithSpread(rankGroups(items), maxN).map((g) => g.canonical);
+export function rankItems<T extends Rankable>(items: T[], maxN: number, options: RankOptions = {}): T[] {
+  return pickWithSpread(rankGroups(items, options), maxN).map((g) => g.canonical);
 }

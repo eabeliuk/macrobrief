@@ -3,11 +3,13 @@ import type { Delivery } from "@prisma/client";
 import { audioScript } from "@/lib/domain/audio";
 import { renderHtml, type Composed } from "@/lib/domain/brief";
 import { trackedUrl } from "@/lib/domain/tracking";
+import { whatsappText } from "@/lib/domain/whatsapp";
 import { sendEmail } from "@/lib/mailer";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/stripe/client";
 import { saveObject, storageConfigured } from "@/lib/storage";
 import { synthesize, ttsConfigured } from "@/lib/tts";
+import { WHATSAPP_MAX_CHARS, sendWhatsApp, whatsappConfigured } from "@/lib/whatsapp";
 
 /**
  * Sending. One row per (brief, channel); this walks the pending ones and
@@ -90,7 +92,16 @@ async function send(delivery: PendingDelivery): Promise<Outcome> {
       await prisma.brief.update({ where: { id: delivery.brief.id }, data: { audioUrl: `/app/briefs/${delivery.brief.id}/audio` } });
       return { status: "SENT" };
     }
-    case "WHATSAPP":
+    case "WHATSAPP": {
+      if (!whatsappConfigured()) return { status: "FAILED", error: "whatsapp not configured (TWILIO_*)" };
+      const composed = composedOf(delivery.brief);
+      const link = `${siteUrl()}/app/briefs/${delivery.brief.id}`;
+      const text = whatsappText(composed, link, WHATSAPP_MAX_CHARS);
+      // Template variable 2 is the digest without the title/link lines the template already frames.
+      const body = text.split("\n\n").slice(1, -1).join("\n\n");
+      const result = await sendWhatsApp(delivery.address, { title: composed.title, body, link, text });
+      return result.sent ? { status: "SENT" } : { status: "FAILED", error: result.error };
+    }
     case "INSTAGRAM":
       return { status: "SKIPPED", error: `${delivery.channel} delivery is not live yet` };
     default:

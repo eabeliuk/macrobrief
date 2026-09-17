@@ -42,6 +42,10 @@ REQUIRED_SECRETS=(
   macrobrief-anthropic-key
   macrobrief-elevenlabs-key
   macrobrief-elevenlabs-voice
+  macrobrief-twilio-sid
+  macrobrief-twilio-token
+  macrobrief-twilio-whatsapp-from
+  macrobrief-twilio-wa-template
   macrobrief-stripe-secret
   macrobrief-stripe-webhook-secret
   macrobrief-stripe-price-starter

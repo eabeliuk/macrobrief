@@ -1,6 +1,7 @@
 import type { Channel, Plan, Prisma } from "@prisma/client";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
+import { publisherAffinity } from "@/lib/affinity";
 import { MODEL, anthropic, anthropicConfigured } from "@/lib/anthropic";
 import {
   ComposedSchema,
@@ -58,7 +59,8 @@ export async function composeDueBriefs(now: Date, { limit = 25, userId }: { limi
       // A first brief may include what was fetched since the window closed —
       // the reader just signed up and is waiting for it.
       const gatherEnd = user._count.briefs === 0 ? now : due.windowEnd;
-      const topics = await gatherTopics(user.topics, user.plan, due.windowStart, gatherEnd);
+      const affinity = await publisherAffinity(user.id, now);
+      const topics = await gatherTopics(user.topics, user.plan, due.windowStart, gatherEnd, affinity);
       if (!topics.some((t) => t.items.length)) {
         summary.skipped.push({ userId: user.id, reason: "no items in window yet" });
         continue;
@@ -110,6 +112,7 @@ async function gatherTopics(
   plan: Plan,
   windowStart: Date,
   windowEnd: Date,
+  affinity: (publisher: string | null) => number,
 ): Promise<PromptTopic[]> {
   const out: PromptTopic[] = [];
   for (const topic of topics) {
@@ -132,6 +135,7 @@ async function gatherTopics(
     const ranked = rankItems(
       items.map((i) => ({ ...i, publishedAt: i.publishedAt ?? i.fetchedAt })),
       PLANS[plan].storiesPerTopic * 2,
+      { affinity },
     );
     out.push({
       topicId: topic.id,
