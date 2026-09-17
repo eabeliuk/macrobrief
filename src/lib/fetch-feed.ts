@@ -1,5 +1,8 @@
+import { lookup } from "node:dns/promises";
+
 import { discoverFeedLinks, looksLikeFeed } from "@/lib/domain/discovery";
 import { FeedParseError, parseFeed, type ParsedFeed } from "@/lib/domain/feed";
+import { hostIsForbidden, ipIsPrivate } from "@/lib/domain/netguard";
 
 /**
  * Fetch a URL and come back with a parsed feed — following one hop of RSS
@@ -46,16 +49,47 @@ function parse(body: string, url: string): ParsedFeed {
   }
 }
 
+/** Refuse before connecting: forbidden host, or any resolved address that is not public. */
+async function assertPublic(url: string): Promise<void> {
+  const { hostname } = new URL(url);
+  if (hostIsForbidden(hostname)) throw new FeedFetchError(`Refusing to fetch ${hostname}`);
+  let addresses: { address: string }[];
+  try {
+    addresses = await lookup(hostname, { all: true });
+  } catch {
+    throw new FeedFetchError(`${hostname}: could not resolve`);
+  }
+  if (!addresses.length || addresses.some((a) => ipIsPrivate(a.address))) {
+    throw new FeedFetchError(`Refusing to fetch ${hostname}`);
+  }
+}
+
+const MAX_REDIRECTS = 5;
+
 async function get(url: string): Promise<{ contentType: string | null; body: string }> {
   if (!/^https?:\/\//i.test(url)) throw new FeedFetchError(`Unsupported URL: ${url}`);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const response = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.5, */*;q=0.1" },
-      redirect: "follow",
-      signal: controller.signal,
-    });
+    // Redirects are followed by hand so every hop is checked — a public
+    // feed URL that 302s to the metadata server is the classic bypass.
+    let current = url;
+    let response: Response;
+    for (let hop = 0; ; hop++) {
+      await assertPublic(current);
+      response = await fetch(current, {
+        headers: { "User-Agent": USER_AGENT, Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.5, */*;q=0.1" },
+        redirect: "manual",
+        signal: controller.signal,
+      });
+      const location = response.headers.get("location");
+      if (response.status >= 300 && response.status < 400 && location) {
+        if (hop >= MAX_REDIRECTS) throw new FeedFetchError(`Too many redirects from ${url}`);
+        current = new URL(location, current).toString();
+        continue;
+      }
+      break;
+    }
     if (!response.ok) throw new FeedFetchError(`HTTP ${response.status} from ${url}`);
     const length = Number(response.headers.get("content-length") ?? 0);
     if (length > MAX_BYTES) throw new FeedFetchError(`Too large: ${url}`);
