@@ -7,7 +7,7 @@ import { PLANS, cadenceAllowed, channelAllowed, type ChannelId } from "@/lib/dom
 import { prisma } from "@/lib/prisma";
 import { planOf, requireUser } from "@/lib/session";
 
-import { addTopic, briefNow, deleteTopic, setChannel, updateSchedule, verifyChannel } from "./actions";
+import { addTopic, briefNow, deleteTopic, setAudioVoice, setChannel, updateSchedule, verifyChannel } from "./actions";
 
 const ERRORS: Record<string, string> = {
   topic: "A topic needs a name of at least two characters.",
@@ -20,6 +20,7 @@ const ERRORS: Record<string, string> = {
   phone: "WhatsApp needs a full international number, like +56 9 1234 5678.",
   codesend: "Saved, but the verification code couldn't be sent — that channel isn't configured on this deployment yet. Save again later to get a code.",
   code: "That code didn't match or has expired. Save the address again for a new one.",
+  voice: "Pick male or female.",
 };
 
 const CHANNEL_HELP: Record<Exclude<ChannelId, "WEB" | "TEXT">, { label: string; placeholder: string; note?: string }> = {
@@ -146,9 +147,28 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   <button type="submit" className="btn-quiet" disabled={!allowed}>Save</button>
                 </div>
                 {help.note ? <p className="text-xs text-ink-3">{help.note}</p> : null}
+                {channel === "AUDIO" ? (
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="label">Voice</span>
+                    <select
+                      name="voice"
+                      form="audio-voice"
+                      className="input w-auto py-1 text-xs"
+                      defaultValue={user.audioVoice}
+                      disabled={planOf(user) === "FREE"}
+                    >
+                      <option value="MALE">Male</option>
+                      <option value="FEMALE">Female</option>
+                    </select>
+                    <button type="submit" form="audio-voice" className="btn-quiet px-2 py-1 text-xs" disabled={planOf(user) === "FREE"}>Save voice</button>
+                    {planOf(user) === "FREE" ? <span className="text-xs text-ink-3">paid plans choose</span> : null}
+                  </div>
+                ) : null}
               </form>
             );
           })}
+          {/* The voice select lives visually inside the audio row but posts to its own action. */}
+          <form id="audio-voice" action={setAudioVoice} />
           {channels.filter((c) => !c.verified && c.channel !== "AUDIO").map((c) => (
             <form key={`verify-${c.channel}`} action={verifyChannel} className="flex items-end gap-2 border-t border-rule pt-3">
               <input type="hidden" name="channel" value={c.channel} />

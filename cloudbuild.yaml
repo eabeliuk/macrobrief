@@ -98,8 +98,6 @@ steps:
         add AUTH_GOOGLE_SECRET macrobrief-google-secret
         add AUTH_RESEND_KEY macrobrief-resend-key
         add ANTHROPIC_API_KEY macrobrief-anthropic-key
-        add ELEVENLABS_API_KEY macrobrief-elevenlabs-key
-        add ELEVENLABS_VOICE_ID macrobrief-elevenlabs-voice
         add TWILIO_ACCOUNT_SID macrobrief-twilio-sid
         add TWILIO_AUTH_TOKEN macrobrief-twilio-token
         add TWILIO_WHATSAPP_FROM macrobrief-twilio-whatsapp-from

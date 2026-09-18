@@ -1,54 +1,51 @@
+import textToSpeech from "@google-cloud/text-to-speech";
+import { GoogleAuth } from "google-gax";
+
 import { chunkScript } from "@/lib/domain/audio";
+import { voiceFor, type VoiceGender } from "@/lib/domain/voices";
 
 /**
- * ElevenLabs text-to-speech, the provider macroscene already uses (its
- * multilingual model reads Spanish and Portuguese briefs cleanly). Unset key
- * → `null`, and the AUDIO delivery records "not configured" rather than
- * failing silently.
+ * Google Cloud Text-to-Speech, Neural2 voices. Same project as everything
+ * else and authenticated by the runtime service account (ADC) — there is
+ * no key to manage, so "configured" means the API is enabled, which
+ * `./deploy.sh --setup` does.
  */
 
-const BASE = "https://api.elevenlabs.io/v1";
-const MODEL = "eleven_multilingual_v2";
-/** "Rachel", an ElevenLabs premade voice — a sane default until a brand voice is chosen. */
-const DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM";
-/** Per-request cap; the multilingual model accepts more but shorter chunks fail less. */
+/** The API caps a request at 5,000 bytes; 4,000 characters keeps accented text under it. */
 const CHUNK_CHARS = 4000;
-const ATTEMPTS = 3;
+
+let client: InstanceType<typeof textToSpeech.TextToSpeechClient> | null = null;
+
+function tts() {
+  if (!client) {
+    // On Cloud Run the service account's project pays. Locally, user ADC
+    // bills whatever project gcloud last set; pin it so a laptop test hits
+    // the project where the API is enabled.
+    const quotaProjectId = process.env.GOOGLE_CLOUD_QUOTA_PROJECT;
+    client = new textToSpeech.TextToSpeechClient(
+      quotaProjectId ? { auth: new GoogleAuth({ clientOptions: { quotaProjectId }, scopes: ["https://www.googleapis.com/auth/cloud-platform"] }) } : {},
+    );
+  }
+  return client;
+}
 
 export function ttsConfigured(): boolean {
-  return Boolean(process.env.ELEVENLABS_API_KEY);
+  // ADC is always present on Cloud Run; locally it needs `gcloud auth application-default login`.
+  return process.env.TTS_DISABLED !== "1";
 }
 
-export async function synthesize(script: string): Promise<Buffer> {
-  const key = process.env.ELEVENLABS_API_KEY;
-  if (!key) throw new Error("ELEVENLABS_API_KEY is not set.");
-  const voice = process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE;
-
+export async function synthesize(script: string, lang: string, gender: VoiceGender): Promise<Buffer> {
+  const voice = voiceFor(lang, gender);
   const parts: Buffer[] = [];
   for (const chunk of chunkScript(script, CHUNK_CHARS)) {
-    parts.push(await synthesizeChunk(chunk, voice, key));
-  }
-  // MP3 frames concatenate; same voice + settings per chunk keeps it seamless enough.
-  return Buffer.concat(parts);
-}
-
-async function synthesizeChunk(text: string, voice: string, key: string): Promise<Buffer> {
-  let lastError = "";
-  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    const response = await fetch(`${BASE}/text-to-speech/${voice}?output_format=mp3_44100_128`, {
-      method: "POST",
-      headers: { "xi-api-key": key, "content-type": "application/json" },
-      body: JSON.stringify({
-        text,
-        model_id: MODEL,
-        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0 },
-      }),
+    const [response] = await tts().synthesizeSpeech({
+      input: { text: chunk },
+      voice,
+      audioConfig: { audioEncoding: "MP3", speakingRate: 1.0 },
     });
-    if (response.ok) return Buffer.from(await response.arrayBuffer());
-    lastError = `HTTP ${response.status} ${(await response.text()).slice(0, 160)}`;
-    // Transient (throttle / server) → back off; anything else is permanent.
-    if (response.status !== 429 && response.status < 500) break;
-    await new Promise((r) => setTimeout(r, 1500 * attempt));
+    if (!response.audioContent) throw new Error("Text-to-Speech returned no audio.");
+    parts.push(Buffer.from(response.audioContent as Uint8Array));
   }
-  throw new Error(`ElevenLabs: ${lastError}`);
+  // MP3 frames concatenate; one voice and one config per brief keeps it seamless enough.
+  return Buffer.concat(parts);
 }

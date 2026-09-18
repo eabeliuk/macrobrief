@@ -35,6 +35,11 @@ enum Plan {
   MAX
 }
 
+enum AudioVoice {
+  MALE
+  FEMALE
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -48,6 +53,9 @@ model User {
   plan             Plan    @default(FREE)
   stripeCustomerId String? @unique
   stripeSubId      String? @unique
+
+  /// Voice for audio briefs. Paid plans may choose; the default is male.
+  audioVoice AudioVoice @default(MALE)
 
   accounts  Account[]
   sessions  Session[]

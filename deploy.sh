@@ -40,8 +40,6 @@ REQUIRED_SECRETS=(
   macrobrief-google-secret
   macrobrief-resend-key
   macrobrief-anthropic-key
-  macrobrief-elevenlabs-key
-  macrobrief-elevenlabs-voice
   macrobrief-twilio-sid
   macrobrief-twilio-token
   macrobrief-twilio-whatsapp-from
@@ -93,7 +91,7 @@ do_setup() {
   info "Enabling required APIs on ${PROJECT_ID}…"
   gcloud services enable \
     run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
-    sqladmin.googleapis.com secretmanager.googleapis.com \
+    sqladmin.googleapis.com secretmanager.googleapis.com texttospeech.googleapis.com \
     --project="$PROJECT_ID"
 
   # Enablement is eventually consistent: the create below fails with

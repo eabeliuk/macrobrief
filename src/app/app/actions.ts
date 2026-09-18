@@ -179,6 +179,17 @@ async function sendCode(channel: ChannelId, address: string, code: string): Prom
   return false;
 }
 
+/** Voice for audio briefs — a choice for paid plans; Free readers keep the default. */
+export async function setAudioVoice(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const voice = String(formData.get("voice"));
+  if (voice !== "MALE" && voice !== "FEMALE") redirect("/app?error=voice");
+  if (planOf(user) === "FREE") redirect("/app?error=plan");
+  await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice } });
+  revalidatePath("/app");
+  redirect("/app");
+}
+
 export async function verifyChannel(formData: FormData): Promise<void> {
   const user = await requireUser();
   const channel = String(formData.get("channel")) as ChannelId;
