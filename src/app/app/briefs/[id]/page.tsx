@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BriefBody } from "@/components/brief-body";
+import { CopyLink } from "@/components/copy-link";
 import { CopyText } from "@/components/copy-text";
-import type { Story } from "@/lib/domain/brief";
+import { Notice } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { siteUrl } from "@/lib/stripe/client";
 
-export default async function BriefPage({ params }: { params: Promise<{ id: string }> }) {
+import { shareBrief, unshareBrief } from "../share-actions";
+
+export default async function BriefPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ shared?: string }> }) {
   const { id } = await params;
+  const { shared } = await searchParams;
   const user = await requireUser();
   const brief = await prisma.brief.findFirst({
     where: { id, userId: user.id },
@@ -33,24 +39,31 @@ export default async function BriefPage({ params }: { params: Promise<{ id: stri
         </section>
       ) : null}
 
-      {brief.sections.map((section) => {
-        const stories = section.stories as unknown as Story[];
-        return (
-          <section key={section.id}>
-            <h2 className="text-lg font-semibold">{section.heading}</h2>
-            {!stories.length ? <p className="mt-2 text-sm text-ink-3">Nothing new this period.</p> : null}
-            <ul className="mt-3 space-y-4">
-              {stories.map((story) => (
-                <li key={story.link}>
-                  <a href={story.link} target="_blank" rel="noreferrer" className="font-medium hover:underline">{story.headline}</a>
-                  {story.publisher ? <span className="text-sm text-ink-3"> — {story.publisher}</span> : null}
-                  <p className="mt-1 text-sm text-ink-2">{story.summary}</p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      <BriefBody sections={brief.sections} />
+
+      <section className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Share</h2>
+          {brief.shareToken ? (
+            <form action={unshareBrief}>
+              <input type="hidden" name="briefId" value={brief.id} />
+              <button type="submit" className="text-xs text-ink-3 hover:text-warn">Stop sharing</button>
+            </form>
+          ) : null}
+        </div>
+        {brief.shareToken ? (
+          <>
+            {shared ? <Notice>Anyone with this link can read the brief{brief.audioUrl ? " and listen to it" : ""} — no account needed.</Notice> : null}
+            <CopyLink url={`${siteUrl()}/s/${brief.shareToken}`} />
+          </>
+        ) : (
+          <form action={shareBrief} className="flex items-center gap-3">
+            <input type="hidden" name="briefId" value={brief.id} />
+            <button type="submit" className="btn-quiet">Create share link</button>
+            <span className="text-xs text-ink-3">Readable by anyone with the link, no account needed. You can stop sharing at any time.</span>
+          </form>
+        )}
+      </section>
 
       <section className="card">
         <div className="flex items-center justify-between">

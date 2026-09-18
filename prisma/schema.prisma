@@ -278,6 +278,8 @@ model Brief {
   audioUrl String?
   /// Length of the audio in seconds, set when it is made.
   audioSeconds Int?
+  /// Public share link token; null = not shared. Revoking sets it back to null.
+  shareToken String? @unique
 
   /// Model accounting.
   model        String?
