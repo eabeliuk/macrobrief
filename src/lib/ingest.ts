@@ -2,6 +2,7 @@ import type { Source } from "@prisma/client";
 
 import { canonicalLink } from "@/lib/domain/relevance";
 import { fetchFeed } from "@/lib/fetch-feed";
+import { isGoogleNewsLink, resolveGoogleNewsLink } from "@/lib/google-news";
 import { prisma } from "@/lib/prisma";
 import { mapWithConcurrency } from "@/lib/sources";
 
@@ -15,6 +16,9 @@ export const POLL_INTERVAL_MIN = 30;
 const MAX_FAILS = 20;
 const POLL_CONCURRENCY = 5;
 const PRUNE_AFTER_DAYS = 30;
+const RESOLVE_CONCURRENCY = 3;
+/** Google links already stored, resolved per cron tick; bounded so a backlog never stalls a poll. */
+const BACKFILL_PER_RUN = 40;
 
 export type IngestSummary = { polled: number; ok: number; failed: number; inserted: number };
 
@@ -44,10 +48,11 @@ export async function pollDueSources(now: Date, { limit = 40, sourceIds }: { lim
 async function pollOne(source: Source, now: Date): Promise<{ ok: true; inserted: number } | { ok: false }> {
   try {
     const { feed } = await fetchFeed(source.url, { allowDiscovery: false });
+    const links = await resolveNewGoogleLinks(source.id, feed.entries.map((e) => e.link));
     const rows = feed.entries.map((e) => ({
       sourceId: source.id,
       title: e.title,
-      link: canonicalLink(e.link),
+      link: links.get(e.link) ?? canonicalLink(e.link),
       summary: e.summary,
       publisher: e.publisher ?? source.publisher,
       imageUrl: e.imageUrl,
@@ -69,6 +74,47 @@ async function pollOne(source: Source, now: Date): Promise<{ ok: true; inserted:
     });
     return { ok: false };
   }
+}
+
+/**
+ * Google News links are opaque redirects; resolve the ones we have not seen
+ * before to the publisher URL so briefs cite the real page and the same
+ * story from Google, Bing and a publisher feed dedupes on one URL. Seen
+ * links are skipped — two requests per story, once.
+ */
+async function resolveNewGoogleLinks(sourceId: string, links: string[]): Promise<Map<string, string>> {
+  const google = links.filter(isGoogleNewsLink);
+  const out = new Map<string, string>();
+  if (!google.length) return out;
+  const seen = new Set((await prisma.item.findMany({ where: { sourceId, link: { in: google } }, select: { link: true } })).map((i) => i.link));
+  const fresh = google.filter((l) => !seen.has(l));
+  await mapWithConcurrency(fresh, RESOLVE_CONCURRENCY, async (link) => {
+    const resolved = await resolveGoogleNewsLink(link);
+    if (resolved) out.set(link, resolved);
+  });
+  return out;
+}
+
+/** Resolve Google links stored before resolution existed. Returns how many changed. */
+export async function backfillGoogleLinks(): Promise<number> {
+  const items = await prisma.item.findMany({
+    where: { link: { startsWith: "https://news.google.com/" } },
+    select: { id: true, sourceId: true, link: true },
+    orderBy: { fetchedAt: "desc" },
+    take: BACKFILL_PER_RUN,
+  });
+  let changed = 0;
+  await mapWithConcurrency(items, RESOLVE_CONCURRENCY, async (item) => {
+    const resolved = await resolveGoogleNewsLink(item.link);
+    if (!resolved) return;
+    // The resolved URL may already be stored for this source (a later poll
+    // resolved it at ingest): keep that row, drop the opaque one.
+    const clash = await prisma.item.findUnique({ where: { sourceId_link: { sourceId: item.sourceId, link: resolved } } });
+    if (clash) await prisma.item.delete({ where: { id: item.id } });
+    else await prisma.item.update({ where: { id: item.id }, data: { link: resolved } });
+    changed++;
+  });
+  return changed;
 }
 
 /** Items older than the retention window, by published date or fetch date when the feed gave none. */

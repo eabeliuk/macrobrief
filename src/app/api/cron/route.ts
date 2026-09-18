@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { composeDueBriefs } from "@/lib/briefs";
 import { deliverPending } from "@/lib/delivery";
-import { pollDueSources, pruneItems } from "@/lib/ingest";
+import { backfillGoogleLinks, pollDueSources, pruneItems } from "@/lib/ingest";
 import { ensureShowcase } from "@/lib/showcase";
 
 /**
@@ -25,9 +25,10 @@ export async function GET(request: Request) {
   const now = new Date();
   await ensureShowcase();
   const ingest = await pollDueSources(now);
+  const resolved = await backfillGoogleLinks();
   const compose = await composeDueBriefs(now);
   const deliver = await deliverPending();
   const pruned = await pruneItems(now);
 
-  return NextResponse.json({ at: now.toISOString(), ingest, compose, deliver, pruned });
+  return NextResponse.json({ at: now.toISOString(), ingest, resolved, compose, deliver, pruned });
 }
