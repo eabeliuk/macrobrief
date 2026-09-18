@@ -7,10 +7,9 @@ import { graticule, project, WORLD_CITIES, type Desk, type LatLon } from "@/lib/
 /**
  * The world behind the sheet, turning. The same orthographic projection as
  * the static globe, re-projected each frame as the view's longitude
- * advances — one revolution a minute. Today's desks are pinned in the
- * signal colour with labels; the rest of the world's cities pass by as
- * quiet dots, so the motion shows coverage sweeping the globe rather than
- * decorating it. Server-rendered at a fixed start so nothing pops, and
+ * advances — one revolution a minute. Every city is a signal-blue pin;
+ * today's desks are the larger, always-labelled ones, so the motion shows
+ * coverage sweeping the globe rather than decorating it. Server-rendered at a fixed start so nothing pops, and
  * still under prefers-reduced-motion.
  */
 
@@ -64,8 +63,8 @@ export function GlobeLive({ desks, className = "" }: { desks: Desk[]; className?
       {cities.map((c) => {
         const z = depth(c.x, c.y);
         return (
-          <g key={c.city} transform={`translate(${c.x} ${c.y})`} opacity={c.today ? 0.35 + 0.65 * z : 0.15 + 0.6 * z}>
-            <circle r={c.today ? 4.5 : 2.2} fill={c.today ? "var(--accent)" : "var(--ink-3)"} stroke="var(--card)" strokeWidth={c.today ? 1.5 : 0.8} />
+          <g key={c.city} transform={`translate(${c.x} ${c.y})`} opacity={c.today ? 0.35 + 0.65 * z : 0.25 + 0.65 * z}>
+            <circle r={c.today ? 5 : 3.2} fill="var(--accent)" stroke="var(--card)" strokeWidth={c.today ? 1.5 : 1} />
             {c.today || (z > 0.55 && !crowded(c)) ? (
               <text x={c.x > 0 ? -8 : 8} y="4" textAnchor={c.x > 0 ? "end" : "start"} className="wire" fill={c.today ? "var(--ink)" : "var(--ink-3)"} style={{ fontSize: c.today ? 11 : 9, letterSpacing: "0.06em" }}>
                 {c.city}
