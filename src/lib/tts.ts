@@ -1,7 +1,7 @@
 import textToSpeech from "@google-cloud/text-to-speech";
 import { GoogleAuth } from "google-gax";
 
-import { chunkScript } from "@/lib/domain/audio";
+import { ssmlChunks, type Segment } from "@/lib/domain/audio";
 import { voiceFor, type VoiceGender } from "@/lib/domain/voices";
 
 /**
@@ -11,8 +11,8 @@ import { voiceFor, type VoiceGender } from "@/lib/domain/voices";
  * `./deploy.sh --setup` does.
  */
 
-/** The API caps a request at 5,000 bytes; 4,000 characters keeps accented text under it. */
-const CHUNK_CHARS = 4000;
+/** The API caps a request at 5,000 bytes of SSML, tags included. */
+const CHUNK_BYTES = 4800;
 
 let client: InstanceType<typeof textToSpeech.TextToSpeechClient> | null = null;
 
@@ -34,12 +34,12 @@ export function ttsConfigured(): boolean {
   return process.env.TTS_DISABLED !== "1";
 }
 
-export async function synthesize(script: string, lang: string, gender: VoiceGender, speed = 1): Promise<Buffer> {
+export async function synthesize(segments: Segment[], lang: string, gender: VoiceGender, speed = 1): Promise<Buffer> {
   const voice = voiceFor(lang, gender);
   const parts: Buffer[] = [];
-  for (const chunk of chunkScript(script, CHUNK_CHARS)) {
+  for (const chunk of ssmlChunks(segments, CHUNK_BYTES)) {
     const [response] = await tts().synthesizeSpeech({
-      input: { text: chunk },
+      input: { ssml: chunk },
       voice,
       audioConfig: { audioEncoding: "MP3", speakingRate: speed },
     });

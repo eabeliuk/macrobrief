@@ -1,6 +1,6 @@
 import type { Delivery } from "@prisma/client";
 
-import { audioScript } from "@/lib/domain/audio";
+import { audioSegments, mp3Seconds } from "@/lib/domain/audio";
 import { renderHtml, type Composed } from "@/lib/domain/brief";
 import { trackedUrl } from "@/lib/domain/tracking";
 import { whatsappText } from "@/lib/domain/whatsapp";
@@ -96,10 +96,10 @@ async function send(delivery: PendingDelivery): Promise<Outcome> {
       if (!ttsConfigured()) return { status: "FAILED", error: "audio not configured" };
       if (!storageConfigured()) return { status: "FAILED", error: "audio storage not configured (AUDIO_BUCKET)" };
       const lang = delivery.brief.user.topics[0]?.lang ?? "en";
-      const mp3 = await synthesize(audioScript(composedOf(delivery.brief)), lang, delivery.brief.user.audioVoice, delivery.brief.user.audioSpeed);
+      const mp3 = await synthesize(audioSegments(composedOf(delivery.brief), lang), lang, delivery.brief.user.audioVoice, delivery.brief.user.audioSpeed);
       await saveObject(`briefs/${delivery.brief.id}.mp3`, mp3, "audio/mpeg");
       // The app streams it after an ownership check; the URL is never a public object.
-      await prisma.brief.update({ where: { id: delivery.brief.id }, data: { audioUrl: `/app/briefs/${delivery.brief.id}/audio` } });
+      await prisma.brief.update({ where: { id: delivery.brief.id }, data: { audioUrl: `/app/briefs/${delivery.brief.id}/audio`, audioSeconds: mp3Seconds(mp3.length) } });
       return { status: "SENT" };
     }
     case "WHATSAPP": {

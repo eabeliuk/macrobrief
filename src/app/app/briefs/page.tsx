@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Notice } from "@/components/ui";
+import { minutesLabel, readingSeconds } from "@/lib/domain/audio";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
@@ -41,7 +42,7 @@ export default async function BriefsPage({ searchParams }: { searchParams: Promi
             {day.briefs.map((b) => (
               <li key={b.id} className="flex items-baseline gap-4 px-4 py-3">
                 <span className="fig w-16 shrink-0 text-xs text-ink-3">{timeOf.format(b.createdAt)}</span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   {/* The "MacroBrief:" prefix belongs on email subjects and messages, not in the app's own list. */}
                   <Link href={`/app/briefs/${b.id}`} className="font-medium hover:underline">{b.title.replace(/^MacroBrief:\s*/, "")}</Link>
                   <p className="text-xs text-ink-3">
@@ -49,6 +50,10 @@ export default async function BriefsPage({ searchParams }: { searchParams: Promi
                     {b.deliveries.length ? ` · ${b.deliveries.map((d) => `${d.channel.toLowerCase()} ${d.status.toLowerCase()}${d.error ? ` — ${d.error}` : ""}`).join(", ")}` : ""}
                   </p>
                 </div>
+                {/* Listening time when there is audio; reading time otherwise. */}
+                <span className="wire shrink-0 text-ink-3" title={b.audioSeconds ? "listening time" : "reading time"}>
+                  {b.audioSeconds ? `▶ ${minutesLabel(b.audioSeconds)}` : minutesLabel(readingSeconds(b.bodyText))}
+                </span>
               </li>
             ))}
           </ul>

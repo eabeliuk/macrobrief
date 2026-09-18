@@ -276,6 +276,8 @@ model Brief {
   /// Same content with links, for the web view.
   bodyMd   String @db.Text
   audioUrl String?
+  /// Length of the audio in seconds, set when it is made.
+  audioSeconds Int?
 
   /// Model accounting.
   model        String?
