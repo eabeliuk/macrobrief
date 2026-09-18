@@ -80,7 +80,7 @@ s += [Paragraph("Part 4 — Verify the domain", H2),
              "At GoDaddy, add a TXT record with host <b>@</b> and that value (host without the domain suffix — GoDaddy appends it). Keep the existing Google and Resend TXT records.",
              "Back in Meta, click <b>Verify</b>. DNS usually propagates within minutes; if it fails, wait an hour and retry. Once verified, the domain also serves as the verification contact in Part 3 and as link ownership for the app in Part 6."])]
 
-s += [PageBreak(), Paragraph("Part 5 — WhatsApp Business Account and number", H2),
+s += [Paragraph("Part 5 — WhatsApp Business Account and number", H2),
       Paragraph("The WhatsApp Business Account (WABA) is created inside the portfolio and holds the sender number, display name, templates and quality rating. Two ways to create it; use the first.", P),
       Paragraph("Option A — through Telnyx (recommended)", H3),
       steps(["In the Telnyx portal, <b>Messaging › WhatsApp › Connect</b>. A Facebook window opens: sign in with the portfolio's admin account, pick the portfolio from Part 1, and let the embedded flow create the WABA and register the number. See the companion guide <i>MacroBrief — WhatsApp and Instagram setup</i>, Part A3.",
