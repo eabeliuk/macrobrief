@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0" xml:base="https://www.fiercebiotech.com/">
+  <channel>
+    <title>Fierce Biotech</title>
+    <item>
+      <title><a href="/research/artelo" hreflang="en">Artelo’s ex-AstraZeneca cannabinoid agonist holds its own</a></title>
+      <link>https://www.fiercebiotech.com/research/artelo</link>
+      <description>Artelo Biosciences’ oral dual cannabinoid agonist showed weight loss.</description>
+      <pubDate>Sep 18, 2026 2:24pm</pubDate>
+      <dc:creator><a href="/person/marissa-russo" hreflang="en">Marissa Russo</a></dc:creator>
+    </item>
+    <item>
+      <title>Plain title with <em>emphasis</em> inside</title>
+      <link>https://www.fiercebiotech.com/biotech/two</link>
+      <description><p>Nested <b>markup</b> in the body</p></description>
+      <pubDate>18 Sep 2026 09:05:00 +0000</pubDate>
+    </item>
+  </channel>
+</rss>

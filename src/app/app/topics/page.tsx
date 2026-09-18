@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { planOf, requireUser } from "@/lib/session";
 
 import { ERRORS } from "../_shared";
-import { addTopic, deleteTopic } from "../actions";
+import { addTopic, briefNow, deleteTopic } from "../actions";
 
 export default async function TopicsPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
   const { error, notice } = await searchParams;
@@ -26,15 +26,23 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
       </div>
       <ul className="divide-y divide-rule rounded-lg border border-rule bg-card">
         {topics.map((t) => (
-          <li key={t.id} className="flex items-center justify-between px-4 py-3">
-            <div>
+          <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
               <Link href={`/app/topics/${t.id}`} className="font-medium hover:underline">{t.name}</Link>
               <p className="text-xs text-ink-3">{t.query} · {t.lang} · {t._count.sources} sources</p>
             </div>
-            <form action={deleteTopic}>
-              <input type="hidden" name="topicId" value={t.id} />
-              <button type="submit" className="text-xs text-ink-3 hover:text-warn">Remove</button>
-            </form>
+            <div className="flex shrink-0 items-center gap-3">
+              {user.isSuperAdmin ? (
+                <form action={briefNow} title="Staff only: an on-demand brief on this topic (one model call)">
+                  <input type="hidden" name="topicId" value={t.id} />
+                  <SubmitButton className="btn-quiet px-3 py-1 text-xs" pending="Writing… ~1 min">Brief me now</SubmitButton>
+                </form>
+              ) : null}
+              <form action={deleteTopic}>
+                <input type="hidden" name="topicId" value={t.id} />
+                <button type="submit" className="text-xs text-ink-3 hover:text-warn">Remove</button>
+              </form>
+            </div>
           </li>
         ))}
         {!topics.length ? <li className="px-4 py-6 text-sm text-ink-3">No topics yet. Add one below — sources are found automatically.</li> : null}

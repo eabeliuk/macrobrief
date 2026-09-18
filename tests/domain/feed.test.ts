@@ -92,3 +92,21 @@ describe("stripHtml", () => {
     expect(stripHtml("<p>a &amp; b</p>\n\n  <br/>c&#39;s")).toBe("a & b c's");
   });
 });
+
+describe("parseFeed — sloppy real-world XML", () => {
+  const feed = parseFeed(fixture("sloppy.xml"));
+
+  it("reads a title that wraps its text in an unescaped <a> element", () => {
+    expect(feed.entries[0].title).toBe("Artelo’s ex-AstraZeneca cannabinoid agonist holds its own");
+    expect(feed.entries[1].title).toBe("Plain title with emphasis inside");
+  });
+
+  it("parses a 'Sep 18, 2026 2:24pm' style date and a day-first RFC one", () => {
+    expect(feed.entries[0].publishedAt?.toISOString()).toBe("2026-09-18T14:24:00.000Z");
+    expect(feed.entries[1].publishedAt?.toISOString()).toBe("2026-09-18T09:05:00.000Z");
+  });
+
+  it("flattens nested markup in descriptions to text", () => {
+    expect(feed.entries[1].summary).toBe("Nested markup in the body");
+  });
+});

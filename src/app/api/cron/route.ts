@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { composeDueBriefs } from "@/lib/briefs";
 import { deliverPending } from "@/lib/delivery";
-import { backfillGoogleLinks, pollDueSources, pruneItems } from "@/lib/ingest";
+import { backfillGoogleLinks, dropUntitled, pollDueSources, pruneItems } from "@/lib/ingest";
 import { ensureShowcase } from "@/lib/showcase";
 
 /**
@@ -24,6 +24,7 @@ export async function GET(request: Request) {
 
   const now = new Date();
   await ensureShowcase();
+  await dropUntitled();
   const ingest = await pollDueSources(now);
   const resolved = await backfillGoogleLinks();
   const compose = await composeDueBriefs(now);

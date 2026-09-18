@@ -129,6 +129,12 @@ export async function backfillGoogleLinks(): Promise<number> {
   return changed;
 }
 
+/** Rows stored as "(untitled)" by the old parser: drop them so the next poll re-inserts them with their real titles. */
+export async function dropUntitled(): Promise<number> {
+  const { count } = await prisma.item.deleteMany({ where: { title: "(untitled)" } });
+  return count;
+}
+
 /** Items older than the retention window, by published date or fetch date when the feed gave none. */
 export async function pruneItems(now: Date): Promise<number> {
   const cutoff = new Date(now.getTime() - PRUNE_AFTER_DAYS * 86_400_000);

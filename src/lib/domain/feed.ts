@@ -38,6 +38,11 @@ const TITLE_MAX_CHARS = 500;
 const LINK_MAX_CHARS = 2000;
 
 const LIST_TAGS = new Set(["item", "entry", "link", "media:thumbnail", "media:content", "enclosure", "category"]);
+// Prose fields are kept as raw strings rather than parsed: feeds embed
+// unescaped HTML in them (`<title><a href=…>Headline</a></title>`), and
+// parsing that into a tree loses the order of text and elements. The raw
+// string goes through stripHtml, which handles tags, CDATA and entities.
+const PROSE_TAGS = ["title", "description", "summary", "content", "content:encoded"];
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -45,6 +50,7 @@ const parser = new XMLParser({
   textNodeName: "#text",
   parseTagValue: false,
   isArray: (tagName) => LIST_TAGS.has(tagName),
+  stopNodes: PROSE_TAGS.map((t) => `*.${t}`),
 });
 
 type Node = Record<string, unknown>;
@@ -66,13 +72,13 @@ export function parseFeed(xml: string): ParsedFeed {
   let title: string | null = null;
   let rawItems: Node[] = [];
   if (channel) {
-    title = text(channel.title);
+    title = stripHtml(text(channel.title));
     rawItems = (channel.item as Node[] | undefined) ?? [];
   } else if (atom) {
-    title = text(atom.title);
+    title = stripHtml(text(atom.title));
     rawItems = (atom.entry as Node[] | undefined) ?? [];
   } else if (rdf) {
-    title = text((rdf.channel as Node | undefined)?.title);
+    title = stripHtml(text((rdf.channel as Node | undefined)?.title));
     rawItems = (rdf.item as Node[] | undefined) ?? [];
   } else {
     throw new FeedParseError("Not an RSS or Atom document");
@@ -85,7 +91,7 @@ export function parseFeed(xml: string): ParsedFeed {
     if (!link) continue;
     const publisher = text(raw.source) || null;
     entries.push({
-      title: cleanTitle(text(raw.title), publisher).slice(0, TITLE_MAX_CHARS),
+      title: cleanTitle(stripHtml(text(raw.title)), publisher).slice(0, TITLE_MAX_CHARS),
       link: link.slice(0, LINK_MAX_CHARS),
       summary: extractSummary(raw),
       publishedAt: extractDate(raw),
@@ -96,13 +102,27 @@ export function parseFeed(xml: string): ParsedFeed {
   return { title, entries };
 }
 
-/** Text content of a node that may be a string, `{ "#text": … }`, or missing. */
+/**
+ * Text content of a node that may be a string, `{ "#text": … }`, or —
+ * in feeds that embed unescaped HTML — an object whose text sits inside
+ * child elements (`<title><a href=…>Headline</a></title>`). Child text is
+ * gathered in document order; attributes are ignored.
+ */
 function text(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value.trim();
-  if (Array.isArray(value)) return text(value[0]);
-  if (typeof value === "object") return text((value as Node)["#text"]);
-  return String(value).trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(text).filter(Boolean).join(" ").trim();
+  if (typeof value === "object") {
+    const node = value as Node;
+    const parts: string[] = [];
+    for (const [key, child] of Object.entries(node)) {
+      if (key.startsWith("@_")) continue;
+      parts.push(text(child));
+    }
+    return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  }
+  return "";
 }
 
 function attr(value: unknown, name: string): string {
@@ -156,9 +176,23 @@ function extractDate(raw: Node): Date | null {
   for (const key of ["pubDate", "published", "dc:date", "updated", "issued", "lastBuildDate"]) {
     const value = text(raw[key]);
     if (!value) continue;
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
+    const parsed = parseDate(value);
+    if (parsed) return parsed;
   }
+  return null;
+}
+
+/**
+ * Dates as publishers actually write them. RFC 822 / ISO first; then the
+ * "Sep 18, 2026 2:24pm" shape (meridiem glued to the time, which the
+ * platform parser rejects), read as UTC because such feeds never say.
+ */
+function parseDate(value: string): Date | null {
+  const direct = new Date(value);
+  if (!Number.isNaN(direct.getTime())) return direct;
+  const spaced = value.replace(/(\d)(am|pm)\b/i, "$1 $2");
+  const loose = new Date(`${spaced} UTC`);
+  if (!Number.isNaN(loose.getTime())) return loose;
   return null;
 }
 
@@ -228,10 +262,14 @@ const NAMED_ENTITIES: Record<string, string> = {
  */
 export function stripHtml(html: string): string {
   const decoded = html
+    // A raw stop-node body may still carry its CDATA wrapper.
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/<[^>]+>/g, " ")
     .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
     .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)))
-    .replace(/&([a-z]+);/gi, (whole, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? whole);
+    .replace(/&([a-z]+);/gi, (whole, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? whole)
+    // Atom summaries of type="html" arrive entity-escaped: their tags only appear after decoding.
+    .replace(/<\/?(?:p|br|div|span|a|b|i|em|strong|ul|ol|li|img|h[1-6]|blockquote|figure|figcaption|table|tr|td|th)\b[^>]*>/gi, " ");
   return decoded.replace(/\s+/g, " ").trim();
 }
 

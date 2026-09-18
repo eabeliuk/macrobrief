@@ -205,14 +205,16 @@ export async function verifyChannel(formData: FormData): Promise<void> {
  * brief, deliver, open it. Staff only — each press is a model call, and
  * readers get their briefs on the schedule they chose.
  */
-export async function briefNow(): Promise<void> {
+export async function briefNow(formData: FormData): Promise<void> {
   const user = await requireUser();
   if (!user.isSuperAdmin) redirect("/app/briefs");
   const now = new Date();
-  const sources = await prisma.topicSource.findMany({ where: { topic: { userId: user.id } }, select: { sourceId: true } });
+  // Scoped to one topic when the form names one (the per-topic button); all topics otherwise.
+  const topic = formData.get("topicId") ? await ownedTopic(user, String(formData.get("topicId"))) : null;
+  const sources = await prisma.topicSource.findMany({ where: topic ? { topicId: topic.id } : { topic: { userId: user.id } }, select: { sourceId: true } });
   await pollDueSources(now, { sourceIds: sources.map((s) => s.sourceId) });
-  const outcome = await composeOnDemand(user.id, now);
-  if (!outcome.ok) redirect(`/app/briefs?notice=${encodeURIComponent(`No brief made: ${outcome.reason}.`)}`);
+  const outcome = await composeOnDemand(user.id, now, topic ? { topicId: topic.id } : {});
+  if (!outcome.ok) redirect(`/app/topics?notice=${encodeURIComponent(`No brief made: ${outcome.reason}.`)}`);
   await deliverPending();
   revalidatePath("/app/briefs");
   redirect(`/app/briefs/${outcome.briefId}`);

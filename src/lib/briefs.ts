@@ -136,13 +136,13 @@ const HOUR_MS = 3_600_000;
  * "Brief me now": a brief over the last 24 hours, keyed by the minute so it
  * never collides with the scheduled one for the period.
  */
-export async function composeOnDemand(userId: string, now: Date): Promise<Outcome> {
+export async function composeOnDemand(userId: string, now: Date, { topicId }: { topicId?: string } = {}): Promise<Outcome> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { schedule: true, topics: true, channels: { where: { enabled: true } } },
+    include: { schedule: true, topics: topicId ? { where: { id: topicId } } : true, channels: { where: { enabled: true } } },
   });
   if (!user) return { ok: false, reason: "no such reader" };
-  if (!user.topics.length) return { ok: false, reason: "add a topic first" };
+  if (!user.topics.length) return { ok: false, reason: topicId ? "no such topic" : "add a topic first" };
 
   const recent = await prisma.brief.findFirst({
     where: { userId, periodKey: { endsWith: "/now" }, createdAt: { gte: new Date(now.getTime() - ON_DEMAND_GAP_MIN * 60_000) } },

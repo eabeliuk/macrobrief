@@ -1,12 +1,10 @@
 import Link from "next/link";
 
-import { SubmitButton } from "@/components/submit-button";
 import { Notice } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
 import { ERRORS } from "../_shared";
-import { briefNow } from "../actions";
 
 export default async function BriefsPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
   const { error, notice } = await searchParams;
@@ -21,14 +19,7 @@ export default async function BriefsPage({ searchParams }: { searchParams: Promi
       {error ? <Notice tone="warn">{ERRORS[error] ?? error}</Notice> : null}
       {notice ? <Notice>{notice}</Notice> : null}
 
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Briefs</h1>
-        {topicCount && user.isSuperAdmin ? (
-          <form action={briefNow} title="Staff only: makes an on-demand brief (one model call)">
-            <SubmitButton className="btn-quiet" pending="Polling, ranking, writing… ~1–2 min">Brief me now · staff</SubmitButton>
-          </form>
-        ) : null}
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">Briefs</h1>
       <ul className="divide-y divide-rule rounded-lg border border-rule bg-card">
         {briefs.map((b) => (
           <li key={b.id} className="px-4 py-3">
