@@ -24,7 +24,7 @@ export default async function TopicPage({ params, searchParams }: { params: Prom
   return (
     <div className="space-y-10">
       <div>
-        <Link href="/app" className="text-sm text-ink-3 hover:underline">← Topics</Link>
+        <Link href="/app/topics" className="text-sm text-ink-3 hover:underline">← Topics</Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{topic.name}</h1>
         <p className="text-sm text-ink-3">query “{topic.query}” · {topic.lang}</p>
       </div>

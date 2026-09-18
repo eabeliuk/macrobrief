@@ -55,7 +55,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-12">
       <div>
-        <Link href="/app" className="text-sm text-ink-3 hover:underline">← Dashboard</Link>
+        <Link href="/app/briefs" className="text-sm text-ink-3 hover:underline">← Briefs</Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight">Admin</h1>
         <p className="wire mt-1 text-ink-3">
           {readers.length} readers · {sources.length} sources · {sources.filter((s) => s.enabled).length} enabled

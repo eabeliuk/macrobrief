@@ -38,10 +38,10 @@ export async function addTopic(formData: FormData): Promise<void> {
     query: formData.get("query") || undefined,
     lang: formData.get("lang") || "en",
   });
-  if (!parsed.success) redirect("/app?error=topic");
+  if (!parsed.success) redirect("/app/topics?error=topic");
 
   const count = await prisma.topic.count({ where: { userId: user.id } });
-  if (!canAddTopic(planOf(user), count)) redirect("/app?error=limit");
+  if (!canAddTopic(planOf(user), count)) redirect("/app/topics?error=limit");
 
   const topic = await prisma.topic.create({
     data: {
@@ -57,7 +57,7 @@ export async function addTopic(formData: FormData): Promise<void> {
   await attachSourcesForTopic(topic);
   const sources = await prisma.topicSource.findMany({ where: { topicId: topic.id }, select: { sourceId: true } });
   await pollDueSources(new Date(), { sourceIds: sources.map((s) => s.sourceId) });
-  revalidatePath("/app");
+  revalidatePath("/app/topics");
   redirect(`/app/topics/${topic.id}`);
 }
 
@@ -65,14 +65,14 @@ export async function deleteTopic(formData: FormData): Promise<void> {
   const user = await requireUser();
   const topic = await ownedTopic(user, String(formData.get("topicId")));
   if (topic) await prisma.topic.delete({ where: { id: topic.id } });
-  revalidatePath("/app");
-  redirect("/app");
+  revalidatePath("/app/topics");
+  redirect("/app/topics");
 }
 
 export async function addSource(formData: FormData): Promise<void> {
   const user = await requireUser();
   const topic = await ownedTopic(user, String(formData.get("topicId")));
-  if (!topic) redirect("/app");
+  if (!topic) redirect("/app/topics");
   const url = String(formData.get("url") ?? "").trim();
   try {
     await attachManualSource(topic, url);
@@ -86,7 +86,7 @@ export async function addSource(formData: FormData): Promise<void> {
 export async function removeSource(formData: FormData): Promise<void> {
   const user = await requireUser();
   const topic = await ownedTopic(user, String(formData.get("topicId")));
-  if (!topic) redirect("/app");
+  if (!topic) redirect("/app/topics");
   const sourceId = String(formData.get("sourceId"));
   // Only the join row: the source stays for everyone else following it.
   await prisma.topicSource.deleteMany({ where: { topicId: topic.id, sourceId } });
@@ -106,12 +106,12 @@ const ScheduleInput = z.object({
 export async function updateSchedule(formData: FormData): Promise<void> {
   const user = await requireUser();
   const parsed = ScheduleInput.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) redirect("/app?error=schedule");
+  if (!parsed.success) redirect("/app/schedule?error=schedule");
   const cadence: CadenceId = cadenceAllowed(planOf(user), parsed.data.cadence) ? parsed.data.cadence : "WEEKLY";
   try {
     Intl.DateTimeFormat("en-US", { timeZone: parsed.data.timezone });
   } catch {
-    redirect("/app?error=timezone");
+    redirect("/app/schedule?error=timezone");
   }
   const { hour12, meridiem, weekday, timezone } = parsed.data;
   const hour = (hour12 % 12) + (meridiem === "PM" ? 12 : 0);
@@ -120,8 +120,8 @@ export async function updateSchedule(formData: FormData): Promise<void> {
     update: { cadence, hour, weekday, timezone },
     create: { userId: user.id, cadence, hour, weekday, timezone },
   });
-  revalidatePath("/app");
-  redirect("/app");
+  revalidatePath("/app/schedule");
+  redirect("/app/schedule");
 }
 
 const ChannelInput = z.object({
@@ -137,18 +137,18 @@ export async function setChannel(formData: FormData): Promise<void> {
     address: formData.get("address") ?? "",
     enabled: formData.get("enabled") === "on",
   });
-  if (!parsed.success) redirect("/app?error=channel");
+  if (!parsed.success) redirect("/app/schedule?error=channel");
   const channel: ChannelId = parsed.data.channel;
-  if (!channelAllowed(planOf(user), channel)) redirect("/app?error=plan");
+  if (!channelAllowed(planOf(user), channel)) redirect("/app/schedule?error=plan");
   // AUDIO has no address: it lives in the app and rides along in the email.
   let address = parsed.data.address || (channel === "EMAIL" ? user.email ?? "" : channel === "AUDIO" ? "app" : "");
   if (channel === "WHATSAPP") {
     // Refuse a number without a country code rather than guess one.
     const phone = address ? normalizeE164(address) : null;
-    if (!phone) redirect("/app?error=phone");
+    if (!phone) redirect("/app/schedule?error=phone");
     address = phone;
   }
-  if (!address) redirect("/app?error=address");
+  if (!address) redirect("/app/schedule?error=address");
 
   const existing = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
   const unchanged = existing?.address === address;
@@ -172,12 +172,12 @@ export async function setChannel(formData: FormData): Promise<void> {
       await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice, audioSpeed: speed } });
     }
   }
-  revalidatePath("/app");
+  revalidatePath("/app/schedule");
   if (code) {
     const sent = await sendCode(channel, address, code);
-    redirect(sent ? `/app?notice=${encodeURIComponent(`Code sent to ${address} — enter it below to verify.`)}` : `/app?error=codesend`);
+    redirect(sent ? `/app/schedule?notice=${encodeURIComponent(`Code sent to ${address} — enter it below to verify.`)}` : `/app/schedule?error=codesend`);
   }
-  redirect("/app");
+  redirect("/app/schedule");
 }
 
 async function sendCode(channel: ChannelId, address: string, code: string): Promise<boolean> {
@@ -193,11 +193,11 @@ export async function verifyChannel(formData: FormData): Promise<void> {
   const user = await requireUser();
   const channel = String(formData.get("channel")) as ChannelId;
   const row = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel: channel as Channel } } });
-  if (!row) redirect("/app?error=channel");
-  if (!codeMatches(String(formData.get("code") ?? ""), row.verifyCode, row.verifyExpires, new Date())) redirect("/app?error=code");
+  if (!row) redirect("/app/schedule?error=channel");
+  if (!codeMatches(String(formData.get("code") ?? ""), row.verifyCode, row.verifyExpires, new Date())) redirect("/app/schedule?error=code");
   await prisma.deliveryChannel.update({ where: { id: row.id }, data: { verified: true, verifyCode: null, verifyExpires: null } });
-  revalidatePath("/app");
-  redirect(`/app?notice=${encodeURIComponent(`${row.address} verified.`)}`);
+  revalidatePath("/app/schedule");
+  redirect(`/app/schedule?notice=${encodeURIComponent(`${row.address} verified.`)}`);
 }
 
 /**
@@ -207,13 +207,13 @@ export async function verifyChannel(formData: FormData): Promise<void> {
  */
 export async function briefNow(): Promise<void> {
   const user = await requireUser();
-  if (!user.isSuperAdmin) redirect("/app");
+  if (!user.isSuperAdmin) redirect("/app/briefs");
   const now = new Date();
   const sources = await prisma.topicSource.findMany({ where: { topic: { userId: user.id } }, select: { sourceId: true } });
   await pollDueSources(now, { sourceIds: sources.map((s) => s.sourceId) });
   const outcome = await composeOnDemand(user.id, now);
-  if (!outcome.ok) redirect(`/app?notice=${encodeURIComponent(`No brief made: ${outcome.reason}.`)}`);
+  if (!outcome.ok) redirect(`/app/briefs?notice=${encodeURIComponent(`No brief made: ${outcome.reason}.`)}`);
   await deliverPending();
-  revalidatePath("/app");
+  revalidatePath("/app/briefs");
   redirect(`/app/briefs/${outcome.briefId}`);
 }

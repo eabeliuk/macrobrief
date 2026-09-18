@@ -25,7 +25,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-8">
       <div>
-        <Link href="/app" className="text-sm text-ink-3 hover:underline">← Dashboard</Link>
+        <Link href="/app/briefs" className="text-sm text-ink-3 hover:underline">← Briefs</Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight">Billing</h1>
         <p className="text-sm text-ink-2">
           You are on <strong>{current.name}</strong>

@@ -20,7 +20,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="max-w-xl space-y-8">
       <div>
-        <Link href="/app" className="text-sm text-ink-3 hover:underline">← Dashboard</Link>
+        <Link href="/app/briefs" className="text-sm text-ink-3 hover:underline">← Briefs</Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight">Profile settings</h1>
       </div>
 

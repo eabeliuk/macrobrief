@@ -18,7 +18,7 @@ export default async function BriefPage({ params }: { params: Promise<{ id: stri
   return (
     <article className="space-y-8">
       <div>
-        <Link href="/app" className="text-sm text-ink-3 hover:underline">← Briefs</Link>
+        <Link href="/app/briefs" className="text-sm text-ink-3 hover:underline">← Briefs</Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{brief.title}</h1>
         <p className="text-sm text-ink-3">
           {brief.periodKey} · covers {brief.windowStart.toISOString().slice(0, 10)} → {brief.windowEnd.toISOString().slice(0, 16).replace("T", " ")} UTC

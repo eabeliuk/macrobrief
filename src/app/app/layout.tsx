@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { signOut } from "@/auth";
+import { BottomNav, SideNav } from "@/components/app-nav";
 import { Logotype } from "@/components/marks";
 import { PLANS } from "@/lib/domain/plans";
 import { planOf, requireUser } from "@/lib/session";
@@ -17,9 +18,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const initial = (user.name ?? user.email ?? "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8">
+    <div className="mx-auto max-w-6xl px-5 py-8 pb-24 lg:pb-8">
       <header className="flex items-center justify-between">
-        <Link href="/app" aria-label="Dashboard">
+        <Link href="/app/briefs" aria-label="Briefs">
           <Logotype height={26} />
         </Link>
 
@@ -43,7 +44,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </details>
       </header>
-      <main className="mt-8">{children}</main>
+      <div className="mt-8 lg:grid lg:grid-cols-[200px_1fr] lg:gap-10">
+        <SideNav />
+        <main className="min-w-0">{children}</main>
+      </div>
+      <BottomNav />
     </div>
   );
 }
