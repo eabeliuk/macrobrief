@@ -16,6 +16,7 @@ import { PLANS, effectiveDelivery, type ChannelId, type PlanId } from "@/lib/dom
 import { rankItems } from "@/lib/domain/ranking";
 import { isRelevant, queryTerms } from "@/lib/domain/relevance";
 import { duePeriod, periodLabel } from "@/lib/domain/schedule";
+import type { CadenceId } from "@/lib/domain/plans";
 import { prisma } from "@/lib/prisma";
 import { planOf } from "@/lib/session";
 
@@ -56,58 +57,106 @@ export async function composeDueBriefs(now: Date, { limit = 25, userId }: { limi
     const due = duePeriod({ ...user.schedule, cadence }, now);
     const existing = await prisma.brief.findUnique({ where: { userId_periodKey: { userId: user.id, periodKey: due.periodKey } } });
     if (existing) continue;
-
-    try {
-      // A first brief may include what was fetched since the window closed —
-      // the reader just signed up and is waiting for it.
-      const gatherEnd = user._count.briefs === 0 ? now : due.windowEnd;
-      const affinity = await publisherAffinity(user.id, now);
-      const topics = await gatherTopics(user.topics, plan, due.windowStart, gatherEnd, affinity);
-      if (!topics.some((t) => t.items.length)) {
-        summary.skipped.push({ userId: user.id, reason: "no items in window yet" });
-        continue;
-      }
-      if (!anthropicConfigured()) {
-        summary.skipped.push({ userId: user.id, reason: "ANTHROPIC_API_KEY unset" });
-        continue;
-      }
-
-      const lang = user.topics[0]?.lang ?? "en";
-      const { composed, usage } = await compose({ periodLabel: periodLabel(cadence), lang, topics });
-      // Only verified addresses receive anything — see domain/verification.ts.
-      const sendTo = user.channels.filter((c) => c.verified && channels.includes(c.channel) && SENDABLE.includes(c.channel));
-
-      await prisma.brief.create({
-        data: {
-          userId: user.id,
-          periodKey: due.periodKey,
-          windowStart: due.windowStart,
-          windowEnd: due.windowEnd,
-          title: composed.title,
-          bodyText: renderText(composed),
-          bodyMd: renderMarkdown(composed),
-          model: MODEL,
-          inputTokens: usage.input,
-          outputTokens: usage.output,
-          sections: {
-            create: composed.sections.map((s, position) => ({
-              topicId: s.topicId,
-              position,
-              heading: s.heading,
-              stories: s.stories as unknown as Prisma.InputJsonValue,
-              itemIds: topics.find((t) => t.topicId === s.topicId)?.items.map((i) => i.id) ?? [],
-            })),
-          },
-          deliveries: { create: sendTo.map((c) => ({ channel: c.channel as Channel, address: c.address })) },
-        },
-      });
-      summary.composed++;
-    } catch (error) {
-      console.error(`[briefs] compose failed for ${user.id}`, error);
-      summary.skipped.push({ userId: user.id, reason: (error as Error).message });
-    }
+    // A first brief may include what was fetched since the window closed —
+    // the reader just signed up and is waiting for it.
+    const gatherEnd = user._count.briefs === 0 ? now : due.windowEnd;
+    const outcome = await composeFor(user, plan, channels, cadence, due, gatherEnd, now);
+    if (outcome.ok) summary.composed++;
+    else summary.skipped.push({ userId: user.id, reason: outcome.reason });
   }
   return summary;
+}
+
+type BriefUser = {
+  id: string;
+  topics: { id: string; name: string; query: string; lang: string }[];
+  channels: { channel: Channel; address: string; verified: boolean }[];
+};
+
+type Outcome = { ok: true; briefId: string } | { ok: false; reason: string };
+
+/** Compose one brief for one reader over one period. Shared by the cron and "Brief me now". */
+async function composeFor(
+  user: BriefUser,
+  plan: PlanId,
+  channels: ChannelId[],
+  cadence: CadenceId,
+  period: { periodKey: string; windowStart: Date; windowEnd: Date },
+  gatherEnd: Date,
+  now: Date,
+): Promise<Outcome> {
+  try {
+    const affinity = await publisherAffinity(user.id, now);
+    const topics = await gatherTopics(user.topics, plan, period.windowStart, gatherEnd, affinity);
+    if (!topics.some((t) => t.items.length)) return { ok: false, reason: "no items in window yet" };
+    if (!anthropicConfigured()) return { ok: false, reason: "ANTHROPIC_API_KEY unset" };
+
+    const lang = user.topics[0]?.lang ?? "en";
+    const { composed, usage } = await compose({ periodLabel: periodLabel(cadence), lang, topics });
+    // Only verified addresses receive anything — see domain/verification.ts.
+    const sendTo = user.channels.filter((c) => c.verified && channels.includes(c.channel) && SENDABLE.includes(c.channel));
+
+    const brief = await prisma.brief.create({
+      data: {
+        userId: user.id,
+        periodKey: period.periodKey,
+        windowStart: period.windowStart,
+        windowEnd: period.windowEnd,
+        title: composed.title,
+        bodyText: renderText(composed),
+        bodyMd: renderMarkdown(composed),
+        model: MODEL,
+        inputTokens: usage.input,
+        outputTokens: usage.output,
+        sections: {
+          create: composed.sections.map((s, position) => ({
+            topicId: s.topicId,
+            position,
+            heading: s.heading,
+            stories: s.stories as unknown as Prisma.InputJsonValue,
+            itemIds: topics.find((t) => t.topicId === s.topicId)?.items.map((i) => i.id) ?? [],
+          })),
+        },
+        deliveries: { create: sendTo.map((c) => ({ channel: c.channel, address: c.address })) },
+      },
+    });
+    return { ok: true, briefId: brief.id };
+  } catch (error) {
+    console.error(`[briefs] compose failed for ${user.id}`, error);
+    return { ok: false, reason: (error as Error).message };
+  }
+}
+
+/** Minimum gap between on-demand briefs per reader — each one is a model call. */
+const ON_DEMAND_GAP_MIN = 10;
+const HOUR_MS = 3_600_000;
+
+/**
+ * "Brief me now": a brief over the last 24 hours, keyed by the minute so it
+ * never collides with the scheduled one for the period.
+ */
+export async function composeOnDemand(userId: string, now: Date): Promise<Outcome> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { schedule: true, topics: true, channels: { where: { enabled: true } } },
+  });
+  if (!user) return { ok: false, reason: "no such reader" };
+  if (!user.topics.length) return { ok: false, reason: "add a topic first" };
+
+  const recent = await prisma.brief.findFirst({
+    where: { userId, periodKey: { endsWith: "/now" }, createdAt: { gte: new Date(now.getTime() - ON_DEMAND_GAP_MIN * 60_000) } },
+    select: { id: true },
+  });
+  if (recent) return { ok: false, reason: `an on-demand brief was made less than ${ON_DEMAND_GAP_MIN} minutes ago` };
+
+  const plan = planOf(user);
+  const { channels } = effectiveDelivery(plan, { cadence: "DAILY", channels: user.channels.map((c) => c.channel) });
+  const period = {
+    periodKey: `${now.toISOString().slice(0, 16)}/now`,
+    windowStart: new Date(now.getTime() - 24 * HOUR_MS),
+    windowEnd: now,
+  };
+  return composeFor(user, plan, channels, "DAILY", period, now, now);
 }
 
 async function gatherTopics(

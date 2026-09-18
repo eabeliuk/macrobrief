@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { composeDueBriefs } from "@/lib/briefs";
+import { composeOnDemand } from "@/lib/briefs";
 import { deliverPending } from "@/lib/delivery";
 import { normalizeQuery } from "@/lib/domain/discovery";
 import type { Channel } from "@prisma/client";
@@ -190,15 +190,15 @@ export async function verifyChannel(formData: FormData): Promise<void> {
   redirect(`/app?notice=${encodeURIComponent(`${row.address} verified.`)}`);
 }
 
-/** "Brief me now": poll this user's sources, compose the due period if missing, deliver. */
+/** "Brief me now": poll this reader's sources, compose a fresh on-demand brief, deliver, open it. */
 export async function briefNow(): Promise<void> {
   const user = await requireUser();
   const now = new Date();
   const sources = await prisma.topicSource.findMany({ where: { topic: { userId: user.id } }, select: { sourceId: true } });
   await pollDueSources(now, { sourceIds: sources.map((s) => s.sourceId) });
-  const result = await composeDueBriefs(now, { userId: user.id });
+  const outcome = await composeOnDemand(user.id, now);
+  if (!outcome.ok) redirect(`/app?notice=${encodeURIComponent(`No brief made: ${outcome.reason}.`)}`);
   await deliverPending();
   revalidatePath("/app");
-  const reason = result.skipped[0]?.reason;
-  redirect(reason ? `/app?notice=${encodeURIComponent(reason)}` : "/app");
+  redirect(`/app/briefs/${outcome.briefId}`);
 }

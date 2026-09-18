@@ -101,7 +101,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <div>
                 <Link href={`/app/briefs/${b.id}`} className="font-medium hover:underline">{b.title}</Link>
                 <p className="text-xs text-ink-3">
-                  {b.periodKey} · {b.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC ·{" "}
+                  {b.periodKey.endsWith("/now") ? "on demand" : b.periodKey} · {b.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC ·{" "}
                   {b.deliveries.map((d) => `${d.channel.toLowerCase()} ${d.status.toLowerCase()}${d.error ? ` — ${d.error}` : ""}`).join(", ") || "web only"}
                 </p>
               </div>
