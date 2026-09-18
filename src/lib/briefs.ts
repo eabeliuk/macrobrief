@@ -6,6 +6,7 @@ import { MODEL, anthropic, anthropicConfigured } from "@/lib/anthropic";
 import {
   ComposedSchema,
   SYSTEM_PROMPT,
+  briefTitle,
   buildPrompt,
   renderMarkdown,
   renderText,
@@ -93,7 +94,8 @@ async function composeFor(
     if (!anthropicConfigured()) return { ok: false, reason: "ANTHROPIC_API_KEY unset" };
 
     const lang = user.topics[0]?.lang ?? "en";
-    const { composed, usage } = await compose({ periodLabel: periodLabel(cadence), lang, topics });
+    const { composed: written, usage } = await compose({ periodLabel: periodLabel(cadence), lang, topics });
+    const composed = { ...written, title: briefTitle(user.topics.map((t) => t.name)) };
     // Only verified addresses receive anything — see domain/verification.ts.
     const sendTo = user.channels.filter((c) => c.verified && channels.includes(c.channel) && SENDABLE.includes(c.channel));
 

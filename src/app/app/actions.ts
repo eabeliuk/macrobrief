@@ -124,63 +124,76 @@ export async function updateSchedule(formData: FormData): Promise<void> {
   redirect("/app/settings");
 }
 
-const ChannelInput = z.object({
-  channel: z.enum(["EMAIL", "WHATSAPP", "INSTAGRAM", "AUDIO"]),
-  address: z.string().trim().max(200),
-  enabled: z.coerce.boolean(),
-});
+const CHANNEL_IDS = ["EMAIL", "AUDIO", "WHATSAPP", "INSTAGRAM"] as const;
+type PushChannel = (typeof CHANNEL_IDS)[number];
 
-export async function setChannel(formData: FormData): Promise<void> {
+function isPushChannel(value: string): value is PushChannel {
+  return (CHANNEL_IDS as readonly string[]).includes(value);
+}
+
+/** Flip a channel between Active and Disabled. The row is created on first use. */
+export async function toggleChannel(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const parsed = ChannelInput.safeParse({
-    channel: formData.get("channel"),
-    address: formData.get("address") ?? "",
-    enabled: formData.get("enabled") === "on",
-  });
-  if (!parsed.success) redirect("/app/settings?error=channel");
-  const channel: ChannelId = parsed.data.channel;
+  const channel = String(formData.get("channel"));
+  if (!isPushChannel(channel)) redirect("/app/settings?error=channel");
   if (!channelAllowed(planOf(user), channel)) redirect("/app/settings?error=plan");
-  // AUDIO has no address: it lives in the app and rides along in the email.
-  let address = parsed.data.address || (channel === "EMAIL" ? user.email ?? "" : channel === "AUDIO" ? "app" : "");
-  if (channel === "WHATSAPP") {
+  const existing = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
+  if (existing) {
+    await prisma.deliveryChannel.update({ where: { id: existing.id }, data: { enabled: !existing.enabled } });
+  } else {
+    // Email is always the account's own address; audio lives in the app. Both are verified by construction.
+    const address = channel === "EMAIL" ? (user.email ?? "") : channel === "AUDIO" ? "app" : "";
+    await prisma.deliveryChannel.create({ data: { userId: user.id, channel, address, enabled: true, verified: channel === "EMAIL" || channel === "AUDIO" } });
+  }
+  revalidatePath("/app/settings");
+  redirect("/app/settings");
+}
+
+/** Set the address of a WhatsApp or Instagram channel; a changed address must be verified again. */
+export async function setChannelAddress(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const channel = String(formData.get("channel"));
+  if (channel !== "WHATSAPP" && channel !== "INSTAGRAM") redirect("/app/settings?error=channel");
+  if (!channelAllowed(planOf(user), channel)) redirect("/app/settings?error=plan");
+  let address = String(formData.get("address") ?? "").trim();
+  if (channel === "WHATSAPP" && address) {
     // Refuse a number without a country code rather than guess one.
-    const phone = address ? normalizeE164(address) : null;
+    const phone = normalizeE164(address);
     if (!phone) redirect("/app/settings?error=phone");
     address = phone;
   }
-  if (!address) redirect("/app/settings?error=address");
-
   const existing = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
-  const unchanged = existing?.address === address;
-  const challenge = needsVerification(channel, address, user.email);
-  // A verified address stays verified; a new or changed one that needs
-  // proving starts unverified with a fresh code.
-  const verified = unchanged ? existing.verified : !challenge;
-  const code = challenge && !verified ? newCode() : null;
+  if (existing?.address === address) redirect("/app/settings");
 
+  const challenge = Boolean(address) && needsVerification(channel, address, user.email);
+  const code = challenge ? newCode() : null;
+  const expires = code ? new Date(Date.now() + CODE_TTL_MIN * 60_000) : null;
   await prisma.deliveryChannel.upsert({
     where: { userId_channel: { userId: user.id, channel } },
-    update: { address, enabled: parsed.data.enabled, verified, ...(code ? { verifyCode: code, verifyExpires: new Date(Date.now() + CODE_TTL_MIN * 60_000) } : {}) },
-    create: { userId: user.id, channel, address, enabled: parsed.data.enabled, verified, verifyCode: code, verifyExpires: code ? new Date(Date.now() + CODE_TTL_MIN * 60_000) : null },
+    update: { address, verified: !challenge, verifyCode: code, verifyExpires: expires },
+    create: { userId: user.id, channel, address, enabled: existing?.enabled ?? true, verified: !challenge, verifyCode: code, verifyExpires: expires },
   });
-  // The audio row carries voice and speed in the same form, so one Save
-  // stores all three; Free readers keep the defaults.
-  if (channel === "AUDIO" && planOf(user) !== "FREE") {
-    const voice = String(formData.get("voice") ?? user.audioVoice);
-    const speed = Number(formData.get("speed") ?? user.audioSpeed);
-    if ((voice === "MALE" || voice === "FEMALE") && isAudioSpeed(speed)) {
-      await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice, audioSpeed: speed } });
-    }
-  }
   revalidatePath("/app/settings");
   if (code) {
     const sent = await sendCode(channel, address, code);
-    redirect(sent ? `/app/settings?notice=${encodeURIComponent(`Code sent to ${address} — enter it below to verify.`)}` : `/app/settings?error=codesend`);
+    redirect(sent ? `/app/settings?notice=${encodeURIComponent(`Code sent to ${address} — enter it to verify.`)}` : `/app/settings?error=codesend`);
   }
   redirect("/app/settings");
 }
 
-async function sendCode(channel: ChannelId, address: string, code: string): Promise<boolean> {
+/** Voice and speed for audio briefs — a choice for paid plans; Free readers keep the defaults. */
+export async function setAudioPrefs(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  if (planOf(user) === "FREE") redirect("/app/settings?error=plan");
+  const voice = String(formData.get("voice") ?? user.audioVoice);
+  const speed = Number(formData.get("speed") ?? user.audioSpeed);
+  if ((voice !== "MALE" && voice !== "FEMALE") || !isAudioSpeed(speed)) redirect("/app/settings?error=voice");
+  await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice, audioSpeed: speed } });
+  revalidatePath("/app/settings");
+  redirect("/app/settings");
+}
+
+async function sendCode(channel: string, address: string, code: string): Promise<boolean> {
   const text = `Your MacroBrief verification code is ${code}. It expires in ${CODE_TTL_MIN} minutes.`;
   if (channel === "EMAIL") return (await sendEmail({ to: address, subject: `${code} is your MacroBrief code`, text })).sent;
   if (channel === "WHATSAPP" && whatsappConfigured()) {
@@ -191,8 +204,9 @@ async function sendCode(channel: ChannelId, address: string, code: string): Prom
 
 export async function verifyChannel(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const channel = String(formData.get("channel")) as ChannelId;
-  const row = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel: channel as Channel } } });
+  const channel = String(formData.get("channel"));
+  if (!isPushChannel(channel)) redirect("/app/settings?error=channel");
+  const row = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
   if (!row) redirect("/app/settings?error=channel");
   if (!codeMatches(String(formData.get("code") ?? ""), row.verifyCode, row.verifyExpires, new Date())) redirect("/app/settings?error=code");
   await prisma.deliveryChannel.update({ where: { id: row.id }, data: { verified: true, verifyCode: null, verifyExpires: null } });

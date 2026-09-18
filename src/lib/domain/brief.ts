@@ -87,6 +87,15 @@ export function buildPrompt(input: PromptInput): string {
 }
 
 const NOTHING_NEW = "Nothing new this period.";
+const TITLE_MAX = 90;
+
+/** "MacroBrief: Topic" — the title is ours, not the model's, so every brief reads the same. */
+export function briefTitle(topicNames: string[]): string {
+  const prefix = "MacroBrief: ";
+  const joined = topicNames.join(", ");
+  if (prefix.length + joined.length <= TITLE_MAX) return prefix + joined;
+  return prefix + joined.slice(0, TITLE_MAX - prefix.length - 1).trimEnd() + "…";
+}
 
 /**
  * Plain text. `linkFor` lets the caller substitute a short link — a

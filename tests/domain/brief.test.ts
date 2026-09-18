@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPrompt, renderHtml, renderMarkdown, renderText, type Composed } from "@/lib/domain/brief";
+import { briefTitle, buildPrompt, renderHtml, renderMarkdown, renderText, type Composed } from "@/lib/domain/brief";
 
 const composed: Composed = {
   title: "Your brief — Thursday 17 Sep",
@@ -138,5 +138,18 @@ describe("renderText — link mapping", () => {
     const text = renderText(composed, { linkFor: (s) => `https://macrobrief.com/l/${s.itemId ?? "x"}` });
     expect(text).toContain("  https://macrobrief.com/l/x");
     expect(text).not.toContain("reuters.test");
+  });
+});
+
+describe("briefTitle", () => {
+  it("names the brief after its topics, 'MacroBrief: Topic'", () => {
+    expect(briefTitle(["Chilean lithium"])).toBe("MacroBrief: Chilean lithium");
+    expect(briefTitle(["Chilean lithium", "Rust"])).toBe("MacroBrief: Chilean lithium, Rust");
+  });
+  it("keeps a long list readable", () => {
+    const names = ["Alpha topic", "Beta topic", "Gamma topic", "Delta topic", "Epsilon topic", "Zeta topic", "Eta topic", "Theta topic"];
+    const t = briefTitle(names);
+    expect(t.length).toBeLessThanOrEqual(90);
+    expect(t.endsWith("…")).toBe(true);
   });
 });
