@@ -89,9 +89,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <section>
         <div className="flex items-baseline justify-between">
           <h2 className="text-xl font-semibold tracking-tight">Briefs</h2>
-          {topics.length ? (
-            <form action={briefNow}>
-              <SubmitButton className="btn-quiet" pending="Polling, ranking, writing… ~1–2 min">Brief me now</SubmitButton>
+          {topics.length && user.isSuperAdmin ? (
+            <form action={briefNow} title="Staff only: makes an on-demand brief (one model call)">
+              <SubmitButton className="btn-quiet" pending="Polling, ranking, writing… ~1–2 min">Brief me now · staff</SubmitButton>
             </form>
           ) : null}
         </div>
@@ -107,7 +107,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               </div>
             </li>
           ))}
-          {!briefs.length ? <li className="px-4 py-6 text-sm text-ink-3">No briefs yet. The first one arrives on your schedule, or press “Brief me now”.</li> : null}
+          {!briefs.length ? <li className="px-4 py-6 text-sm text-ink-3">No briefs yet. The first one arrives on your schedule.</li> : null}
         </ul>
       </section>
 

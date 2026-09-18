@@ -190,9 +190,14 @@ export async function verifyChannel(formData: FormData): Promise<void> {
   redirect(`/app?notice=${encodeURIComponent(`${row.address} verified.`)}`);
 }
 
-/** "Brief me now": poll this reader's sources, compose a fresh on-demand brief, deliver, open it. */
+/**
+ * "Brief me now": poll this reader's sources, compose a fresh on-demand
+ * brief, deliver, open it. Staff only — each press is a model call, and
+ * readers get their briefs on the schedule they chose.
+ */
 export async function briefNow(): Promise<void> {
   const user = await requireUser();
+  if (!user.isSuperAdmin) redirect("/app");
   const now = new Date();
   const sources = await prisma.topicSource.findMany({ where: { topic: { userId: user.id } }, select: { sourceId: true } });
   await pollDueSources(now, { sourceIds: sources.map((s) => s.sourceId) });
