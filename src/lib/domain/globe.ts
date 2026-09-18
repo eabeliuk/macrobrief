@@ -140,3 +140,34 @@ function words(value: string): string[] {
     .split(/[\s-]+/)
     .filter(Boolean);
 }
+
+/** World cities for the live globe — enough to read as "everywhere", few enough not to clutter. */
+export const WORLD_CITIES: Desk[] = [
+  { city: "New York", lat: 40.71, lon: -74.01 },
+  { city: "Washington", lat: 38.9, lon: -77.04 },
+  { city: "San Francisco", lat: 37.77, lon: -122.42 },
+  { city: "Mexico City", lat: 19.43, lon: -99.13 },
+  { city: "Bogotá", lat: 4.71, lon: -74.07 },
+  { city: "Lima", lat: -12.05, lon: -77.04 },
+  { city: "Santiago", lat: -33.45, lon: -70.67 },
+  { city: "Buenos Aires", lat: -34.6, lon: -58.38 },
+  { city: "São Paulo", lat: -23.55, lon: -46.63 },
+  { city: "London", lat: 51.51, lon: -0.13 },
+  { city: "Paris", lat: 48.86, lon: 2.35 },
+  { city: "Madrid", lat: 40.42, lon: -3.7 },
+  { city: "Berlin", lat: 52.52, lon: 13.41 },
+  { city: "Lagos", lat: 6.52, lon: 3.38 },
+  { city: "Johannesburg", lat: -26.2, lon: 28.05 },
+  { city: "Nairobi", lat: -1.29, lon: 36.82 },
+  { city: "Cairo", lat: 30.04, lon: 31.24 },
+  { city: "Doha", lat: 25.29, lon: 51.53 },
+  { city: "Tel Aviv", lat: 32.08, lon: 34.78 },
+  { city: "Moscow", lat: 55.76, lon: 37.62 },
+  { city: "New Delhi", lat: 28.61, lon: 77.21 },
+  { city: "Singapore", lat: 1.35, lon: 103.82 },
+  { city: "Hong Kong", lat: 22.32, lon: 114.17 },
+  { city: "Beijing", lat: 39.9, lon: 116.4 },
+  { city: "Seoul", lat: 37.57, lon: 126.98 },
+  { city: "Tokyo", lat: 35.68, lon: 139.69 },
+  { city: "Sydney", lat: -33.87, lon: 151.21 },
+];

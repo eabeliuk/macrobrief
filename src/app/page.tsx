@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Globe } from "@/components/globe";
+import { GlobeLive } from "@/components/globe-live";
 import { Isotype } from "@/components/marks";
 import { Wordmark } from "@/components/ui";
 import { PLANS, PLAN_ORDER } from "@/lib/domain/plans";
@@ -51,7 +51,9 @@ export default async function LandingPage() {
           <h1 className="text-[2.6rem] font-bold leading-[1.05] tracking-tight">
             Tell it what you follow.
             <br />
-            It reads the world.
+            It scans the world.
+            <br />
+            It delivers live updates.
           </h1>
           <p className="mt-6 max-w-lg text-lg text-ink-2">
             Name a few topics. MacroBrief finds the sources, reads everything they publish, decides what matters, and
@@ -66,7 +68,7 @@ export default async function LandingPage() {
           </p>
         </div>
         <div className="lg:col-span-4">
-          <Globe desks={budget.desks} className="mx-auto w-full max-w-[520px]" />
+          <GlobeLive desks={budget.desks} className="mx-auto w-full max-w-[520px]" />
         </div>
       </section>
 
