@@ -2,7 +2,7 @@ import type { Source } from "@prisma/client";
 
 import { canonicalLink } from "@/lib/domain/relevance";
 import { fetchFeed } from "@/lib/fetch-feed";
-import { isGoogleNewsLink, lastResolveError, resolveGoogleNewsLink } from "@/lib/google-news";
+import { GoogleRateLimited, isGoogleNewsLink, lastResolveError, resolveGoogleNewsLink } from "@/lib/google-news";
 import { prisma } from "@/lib/prisma";
 import { mapWithConcurrency } from "@/lib/sources";
 
@@ -16,9 +16,8 @@ export const POLL_INTERVAL_MIN = 30;
 const MAX_FAILS = 20;
 const POLL_CONCURRENCY = 5;
 const PRUNE_AFTER_DAYS = 30;
-const RESOLVE_CONCURRENCY = 3;
-/** Google links already stored, resolved per cron tick; bounded so a backlog never stalls a poll. */
-const BACKFILL_PER_RUN = 40;
+/** Google links already stored, resolved per cron tick — small and sequential; Google throttles cloud IPs hard. */
+const BACKFILL_PER_RUN = 12;
 
 export type IngestSummary = { polled: number; ok: number; failed: number; inserted: number };
 
@@ -88,10 +87,15 @@ async function resolveNewGoogleLinks(sourceId: string, links: string[]): Promise
   if (!google.length) return out;
   const seen = new Set((await prisma.item.findMany({ where: { sourceId, link: { in: google } }, select: { link: true } })).map((i) => i.link));
   const fresh = google.filter((l) => !seen.has(l));
-  await mapWithConcurrency(fresh, RESOLVE_CONCURRENCY, async (link) => {
-    const resolved = await resolveGoogleNewsLink(link);
-    if (resolved) out.set(link, resolved);
-  });
+  for (const link of fresh) {
+    try {
+      const resolved = await resolveGoogleNewsLink(link);
+      if (resolved) out.set(link, resolved);
+    } catch (error) {
+      if (error instanceof GoogleRateLimited) break; // the rest stay opaque; the backfill gets them later
+      throw error;
+    }
+  }
   return out;
 }
 
@@ -104,17 +108,23 @@ export async function backfillGoogleLinks(): Promise<number> {
     take: BACKFILL_PER_RUN,
   });
   let changed = 0;
-  await mapWithConcurrency(items, RESOLVE_CONCURRENCY, async (item) => {
+  for (const item of items) {
     // Bing wraps are decoded locally; Google links need the resolver.
-    const resolved = isGoogleNewsLink(item.link) ? await resolveGoogleNewsLink(item.link) : canonicalLink(item.link);
-    if (!resolved || resolved === item.link) return;
+    let resolved: string | null;
+    try {
+      resolved = isGoogleNewsLink(item.link) ? await resolveGoogleNewsLink(item.link) : canonicalLink(item.link);
+    } catch (error) {
+      if (error instanceof GoogleRateLimited) break;
+      throw error;
+    }
+    if (!resolved || resolved === item.link) continue;
     // The resolved URL may already be stored for this source (a later poll
     // resolved it at ingest): keep that row, drop the opaque one.
     const clash = await prisma.item.findUnique({ where: { sourceId_link: { sourceId: item.sourceId, link: resolved } } });
     if (clash) await prisma.item.delete({ where: { id: item.id } });
     else await prisma.item.update({ where: { id: item.id }, data: { link: resolved } });
     changed++;
-  });
+  }
   if (items.length && !changed && lastResolveError) console.warn(`[resolve] 0/${items.length} resolved — last error: ${lastResolveError}`);
   return changed;
 }

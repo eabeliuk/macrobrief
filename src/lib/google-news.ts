@@ -25,6 +25,21 @@ export function isGoogleNewsLink(link: string): boolean {
 /** Why the last resolution failed — one line per cron run is enough to diagnose a wall. */
 export let lastResolveError: string | null = null;
 
+/**
+ * Google rate-limits this from cloud IP ranges far more tightly than from a
+ * laptop (429 after ~a hundred calls in a few minutes). Requests are spaced,
+ * and a 429 is reported so the caller stops the run instead of digging in.
+ */
+export class GoogleRateLimited extends Error {}
+const PAUSE_MS = 1200;
+let lastCallAt = 0;
+
+async function politely(): Promise<void> {
+  const wait = lastCallAt + PAUSE_MS - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastCallAt = Date.now();
+}
+
 export async function resolveGoogleNewsLink(link: string): Promise<string | null> {
   const id = ARTICLE_PATH.exec(new URL(link).pathname)?.[1];
   if (!id) return null;
@@ -63,11 +78,13 @@ export async function resolveGoogleNewsLink(link: string): Promise<string | null
     return null;
   } catch (error) {
     lastResolveError = (error as Error).message;
+    if (error instanceof GoogleRateLimited) throw error;
     return null;
   }
 }
 
 async function text(url: string, init: { method?: string; body?: URLSearchParams } = {}): Promise<string> {
+  await politely();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -80,6 +97,7 @@ async function text(url: string, init: { method?: string; body?: URLSearchParams
       },
       signal: controller.signal,
     });
+    if (response.status === 429) throw new GoogleRateLimited(`HTTP 429 from ${new URL(url).pathname}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.text();
   } finally {
