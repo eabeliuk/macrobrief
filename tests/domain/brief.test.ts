@@ -132,3 +132,11 @@ describe("renderHtml — link mapping", () => {
     expect(html).not.toContain("to=javascript");
   });
 });
+
+describe("renderText — link mapping", () => {
+  it("substitutes the caller's link per story", () => {
+    const text = renderText(composed, { linkFor: (s) => `https://macrobrief.com/l/${s.itemId ?? "x"}` });
+    expect(text).toContain("  https://macrobrief.com/l/x");
+    expect(text).not.toContain("reuters.test");
+  });
+});

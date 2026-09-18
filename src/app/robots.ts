@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /** The landing is public; the app, the API, the tracker and the sign-in page are not for crawlers. */
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: "*", allow: "/", disallow: ["/app", "/api", "/r/", "/login"] }],
+    rules: [{ userAgent: "*", allow: "/", disallow: ["/app", "/api", "/r/", "/l/", "/login"] }],
     sitemap: `${siteUrl()}/sitemap.xml`,
   };
 }

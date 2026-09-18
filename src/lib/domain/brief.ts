@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { truncate } from "./feed";
 
-export type Story = { headline: string; summary: string; link: string; publisher: string | null };
+export type Story = { headline: string; summary: string; link: string; publisher: string | null; itemId?: string };
 export type ComposedSection = { topicId: string; heading: string; stories: Story[] };
 export type Composed = { title: string; intro?: string; sections: ComposedSection[] };
 
@@ -88,7 +88,12 @@ export function buildPrompt(input: PromptInput): string {
 
 const NOTHING_NEW = "Nothing new this period.";
 
-export function renderText(c: Composed): string {
+/**
+ * Plain text. `linkFor` lets the caller substitute a short link — a
+ * Google News redirect runs to 300 characters and wrecks a text column;
+ * the app's `/l/<item>` is 45 and records the open.
+ */
+export function renderText(c: Composed, { linkFor = (story: Story) => story.link }: { linkFor?: (story: Story) => string } = {}): string {
   const out: string[] = [c.title.toUpperCase(), ""];
   if (c.intro) out.push(c.intro, "");
   for (const section of c.sections) {
@@ -97,7 +102,7 @@ export function renderText(c: Composed): string {
     for (const story of section.stories) {
       out.push(`• ${story.headline}${story.publisher ? ` (${story.publisher})` : ""}`);
       out.push(`  ${story.summary}`);
-      out.push(`  ${story.link}`);
+      out.push(`  ${linkFor(story)}`);
     }
     out.push("");
   }

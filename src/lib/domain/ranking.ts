@@ -16,7 +16,13 @@ export type Rankable = {
   title: string;
   publisher: string | null;
   publishedAt: Date;
+  /** Optional: when present, an opaque redirect (Google News) loses to a real URL at equal tier. */
+  link?: string;
 };
+
+function isOpaqueLink(link: string | undefined): boolean {
+  return Boolean(link && /news\.google\.com\/(rss\/)?articles\//.test(link));
+}
 
 export type RankingGroup<T extends Rankable> = {
   signature: string;
@@ -122,6 +128,10 @@ function canonicalOf<T extends Rankable>(group: T[]): T {
     const ta = publisherTier(a.publisher);
     const tb = publisherTier(best.publisher);
     if (ta !== tb) return ta < tb ? a : best;
+    // Same tier: a link the reader can actually see the publisher of beats a redirect.
+    const oa = isOpaqueLink(a.link);
+    const ob = isOpaqueLink(best.link);
+    if (oa !== ob) return oa ? best : a;
     return a.publishedAt > best.publishedAt ? a : best;
   });
 }

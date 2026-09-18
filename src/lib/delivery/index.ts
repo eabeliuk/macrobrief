@@ -78,10 +78,12 @@ async function send(delivery: PendingDelivery): Promise<Outcome> {
       // Re-read: an AUDIO delivery earlier in this run may have set audioUrl.
       const fresh = await prisma.brief.findUnique({ where: { id: delivery.brief.id }, select: { audioUrl: true } });
       const listen = fresh?.audioUrl ? `${siteUrl()}${fresh.audioUrl}` : null;
+      // Short links in the text body carry the delivery id so an open from a text-only client is recorded too.
+      const text = delivery.brief.bodyText.replace(/(\/l\/[a-z0-9]+)(?=\s|$)/g, `$1?d=${delivery.id}`);
       const result = await sendEmail({
         to: delivery.address,
         subject: delivery.brief.title,
-        text: listen ? `Listen to this brief: ${listen}\n\n${delivery.brief.bodyText}` : delivery.brief.bodyText,
+        text: listen ? `Listen to this brief: ${listen}\n\n${text}` : text,
         html: renderHtml(composedOf(delivery.brief), {
           listenUrl: listen,
           // Story links go through the signed redirect so opens are recorded.

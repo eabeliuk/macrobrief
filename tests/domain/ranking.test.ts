@@ -110,3 +110,13 @@ describe("rankGroups — reader affinity", () => {
     expect(boosted).toEqual(["reuters", "blog", "cnbc"]);
   });
 });
+
+describe("canonical pick — link quality", () => {
+  it("prefers a real URL over an opaque redirect when publishers tie", () => {
+    const groups = rankGroups([
+      { id: "g", title: "Chile lithium output hits record", publisher: "Reuters", publishedAt: at("2026-09-17T08:00:00Z"), link: "https://news.google.com/rss/articles/CBMi?oc=5" },
+      { id: "b", title: "Chile lithium output hits record", publisher: "Reuters", publishedAt: at("2026-09-17T06:00:00Z"), link: "https://www.reuters.com/x" },
+    ]);
+    expect(groups[0].canonical.id).toBe("b");
+  });
+});

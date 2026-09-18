@@ -19,6 +19,7 @@ import { duePeriod, periodLabel } from "@/lib/domain/schedule";
 import type { CadenceId } from "@/lib/domain/plans";
 import { prisma } from "@/lib/prisma";
 import { planOf } from "@/lib/session";
+import { siteUrl } from "@/lib/stripe/client";
 
 /**
  * Composing briefs.
@@ -103,7 +104,7 @@ async function composeFor(
         windowStart: period.windowStart,
         windowEnd: period.windowEnd,
         title: composed.title,
-        bodyText: renderText(composed),
+        bodyText: renderText(composed, { linkFor: (story) => (story.itemId ? `${siteUrl()}/l/${story.itemId}` : story.link) }),
         bodyMd: renderMarkdown(composed),
         model: MODEL,
         inputTokens: usage.input,
@@ -229,7 +230,7 @@ function sanitize(composed: Composed, topics: PromptTopic[]): Composed {
     const links = new Map(topic.items.map((i) => [i.link, i]));
     const stories = (section?.stories ?? [])
       .filter((s) => links.has(s.link))
-      .map((s) => ({ ...s, publisher: s.publisher ?? links.get(s.link)?.publisher ?? null }))
+      .map((s) => ({ ...s, publisher: s.publisher ?? links.get(s.link)?.publisher ?? null, itemId: links.get(s.link)?.id }))
       .slice(0, topic.storiesWanted);
     return { topicId: topic.topicId, heading: section?.heading || byTopic.get(topic.topicId)!.name, stories };
   });

@@ -57,7 +57,7 @@ export default async function BriefPage({ params }: { params: Promise<{ id: stri
           <h2 className="font-semibold">Plain text</h2>
           <CopyText text={brief.bodyText} />
         </div>
-        <pre className="mt-3 whitespace-pre-wrap text-xs text-ink-2">{brief.bodyText}</pre>
+        <pre className="mt-3 whitespace-pre-wrap text-xs text-ink-2 [overflow-wrap:anywhere]">{brief.bodyText}</pre>
       </section>
     </article>
   );
