@@ -20,3 +20,11 @@ const VOICES: Record<string, Record<VoiceGender, Voice>> = {
 export function voiceFor(lang: string, gender: VoiceGender): Voice {
   return (VOICES[lang] ?? VOICES.en)[gender];
 }
+
+/** Speaking rates the reader may pick; Google accepts 0.25–4 but these are the ones that read well. */
+export const AUDIO_SPEEDS = [1, 1.2, 1.5, 2] as const;
+export type AudioSpeed = (typeof AUDIO_SPEEDS)[number];
+
+export function isAudioSpeed(value: number): value is AudioSpeed {
+  return (AUDIO_SPEEDS as readonly number[]).includes(value);
+}

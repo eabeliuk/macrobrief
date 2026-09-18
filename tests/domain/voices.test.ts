@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { voiceFor } from "@/lib/domain/voices";
+import { isAudioSpeed, voiceFor } from "@/lib/domain/voices";
 
 describe("voiceFor", () => {
   it("picks the Neural2 voice for the language and gender, male by default", () => {
@@ -13,5 +13,12 @@ describe("voiceFor", () => {
   });
   it("falls back to English for a language without a voice", () => {
     expect(voiceFor("xx", "MALE").name).toBe("en-US-Neural2-J");
+  });
+});
+
+describe("isAudioSpeed", () => {
+  it("accepts only the offered rates", () => {
+    expect([1, 1.2, 1.5, 2].every(isAudioSpeed)).toBe(true);
+    expect([0.5, 1.1, 3, NaN].some(isAudioSpeed)).toBe(false);
   });
 });

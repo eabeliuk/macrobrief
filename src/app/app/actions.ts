@@ -11,6 +11,7 @@ import type { Channel } from "@prisma/client";
 
 import { cadenceAllowed, canAddTopic, channelAllowed, type CadenceId, type ChannelId } from "@/lib/domain/plans";
 import { CODE_TTL_MIN, codeMatches, needsVerification, newCode } from "@/lib/domain/verification";
+import { isAudioSpeed } from "@/lib/domain/voices";
 import { normalizeE164 } from "@/lib/domain/whatsapp";
 import { sendEmail } from "@/lib/mailer";
 import { sendWhatsApp, whatsappConfigured } from "@/lib/whatsapp";
@@ -179,13 +180,14 @@ async function sendCode(channel: ChannelId, address: string, code: string): Prom
   return false;
 }
 
-/** Voice for audio briefs — a choice for paid plans; Free readers keep the default. */
+/** Voice and speed for audio briefs — a choice for paid plans; Free readers keep the defaults. */
 export async function setAudioVoice(formData: FormData): Promise<void> {
   const user = await requireUser();
   const voice = String(formData.get("voice"));
-  if (voice !== "MALE" && voice !== "FEMALE") redirect("/app?error=voice");
+  const speed = Number(formData.get("speed"));
+  if ((voice !== "MALE" && voice !== "FEMALE") || !isAudioSpeed(speed)) redirect("/app?error=voice");
   if (planOf(user) === "FREE") redirect("/app?error=plan");
-  await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice } });
+  await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice, audioSpeed: speed } });
   revalidatePath("/app");
   redirect("/app");
 }

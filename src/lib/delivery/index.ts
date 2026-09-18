@@ -27,7 +27,7 @@ export type DeliverSummary = { sent: number; failed: number; skipped: number };
 export async function deliverPending({ limit = 50 } = {}): Promise<DeliverSummary> {
   const pending = await prisma.delivery.findMany({
     where: { status: "PENDING", attempts: { lt: MAX_ATTEMPTS } },
-    include: { brief: { include: { sections: { orderBy: { position: "asc" } }, user: { select: { audioVoice: true, topics: { select: { lang: true }, take: 1 } } } } } },
+    include: { brief: { include: { sections: { orderBy: { position: "asc" } }, user: { select: { audioVoice: true, audioSpeed: true, topics: { select: { lang: true }, take: 1 } } } } } },
     orderBy: { createdAt: "asc" },
     take: limit,
   });
@@ -59,7 +59,7 @@ type PendingDelivery = Delivery & {
     bodyText: string;
     bodyMd: string;
     sections: { topicId: string; heading: string; stories: unknown }[];
-    user: { audioVoice: "MALE" | "FEMALE"; topics: { lang: string }[] };
+    user: { audioVoice: "MALE" | "FEMALE"; audioSpeed: number; topics: { lang: string }[] };
   };
 };
 
@@ -94,7 +94,7 @@ async function send(delivery: PendingDelivery): Promise<Outcome> {
       if (!ttsConfigured()) return { status: "FAILED", error: "audio not configured" };
       if (!storageConfigured()) return { status: "FAILED", error: "audio storage not configured (AUDIO_BUCKET)" };
       const lang = delivery.brief.user.topics[0]?.lang ?? "en";
-      const mp3 = await synthesize(audioScript(composedOf(delivery.brief)), lang, delivery.brief.user.audioVoice);
+      const mp3 = await synthesize(audioScript(composedOf(delivery.brief)), lang, delivery.brief.user.audioVoice, delivery.brief.user.audioSpeed);
       await saveObject(`briefs/${delivery.brief.id}.mp3`, mp3, "audio/mpeg");
       // The app streams it after an ownership check; the URL is never a public object.
       await prisma.brief.update({ where: { id: delivery.brief.id }, data: { audioUrl: `/app/briefs/${delivery.brief.id}/audio` } });

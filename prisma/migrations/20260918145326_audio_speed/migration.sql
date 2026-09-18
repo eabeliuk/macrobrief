@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "audioSpeed" DOUBLE PRECISION NOT NULL DEFAULT 1;

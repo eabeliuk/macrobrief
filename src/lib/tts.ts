@@ -34,14 +34,14 @@ export function ttsConfigured(): boolean {
   return process.env.TTS_DISABLED !== "1";
 }
 
-export async function synthesize(script: string, lang: string, gender: VoiceGender): Promise<Buffer> {
+export async function synthesize(script: string, lang: string, gender: VoiceGender, speed = 1): Promise<Buffer> {
   const voice = voiceFor(lang, gender);
   const parts: Buffer[] = [];
   for (const chunk of chunkScript(script, CHUNK_CHARS)) {
     const [response] = await tts().synthesizeSpeech({
       input: { text: chunk },
       voice,
-      audioConfig: { audioEncoding: "MP3", speakingRate: 1.0 },
+      audioConfig: { audioEncoding: "MP3", speakingRate: speed },
     });
     if (!response.audioContent) throw new Error("Text-to-Speech returned no audio.");
     parts.push(Buffer.from(response.audioContent as Uint8Array));

@@ -56,6 +56,8 @@ model User {
 
   /// Voice for audio briefs. Paid plans may choose; the default is male.
   audioVoice AudioVoice @default(MALE)
+  /// Speaking rate for audio briefs: 1, 1.2, 1.5 or 2. Applied at synthesis.
+  audioSpeed Float      @default(1)
 
   accounts  Account[]
   sessions  Session[]

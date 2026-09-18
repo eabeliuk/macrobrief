@@ -4,6 +4,7 @@ import { ScheduleForm } from "@/components/schedule-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, Notice } from "@/components/ui";
 import { PLANS, cadenceAllowed, channelAllowed, type ChannelId } from "@/lib/domain/plans";
+import { AUDIO_SPEEDS } from "@/lib/domain/voices";
 import { prisma } from "@/lib/prisma";
 import { planOf, requireUser } from "@/lib/session";
 
@@ -20,7 +21,7 @@ const ERRORS: Record<string, string> = {
   phone: "WhatsApp needs a full international number, like +56 9 1234 5678.",
   codesend: "Saved, but the verification code couldn't be sent — that channel isn't configured on this deployment yet. Save again later to get a code.",
   code: "That code didn't match or has expired. Save the address again for a new one.",
-  voice: "Pick male or female.",
+  voice: "Pick a voice (male or female) and a speed (1×, 1.2×, 1.5× or 2×).",
 };
 
 const CHANNEL_HELP: Record<Exclude<ChannelId, "WEB" | "TEXT">, { label: string; placeholder: string; note?: string }> = {
@@ -160,7 +161,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                       <option value="MALE">Male</option>
                       <option value="FEMALE">Female</option>
                     </select>
-                    <button type="submit" form="audio-voice" className="btn-quiet px-2 py-1 text-xs" disabled={planOf(user) === "FREE"}>Save voice</button>
+                    <span className="label">Speed</span>
+                    <select name="speed" form="audio-voice" className="input w-auto py-1 text-xs" defaultValue={String(user.audioSpeed)} disabled={planOf(user) === "FREE"}>
+                      {AUDIO_SPEEDS.map((r) => (
+                        <option key={r} value={String(r)}>{r}×</option>
+                      ))}
+                    </select>
+                    <button type="submit" form="audio-voice" className="btn-quiet px-2 py-1 text-xs" disabled={planOf(user) === "FREE"}>Save</button>
                     {planOf(user) === "FREE" ? <span className="text-xs text-ink-3">paid plans choose</span> : null}
                   </div>
                 ) : null}
