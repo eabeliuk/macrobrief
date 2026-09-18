@@ -18,8 +18,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const initial = (user.name ?? user.email ?? "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 pb-24 lg:pb-8">
-      <header className="flex items-center justify-between">
+    <div className="min-h-dvh pb-24 lg:pb-0">
+      {/* Full-bleed header: the mark at the window's left edge, the profile at its right. */}
+      <header className="flex items-center justify-between border-b border-rule bg-card px-5 py-4">
         <Link href="/app/briefs" aria-label="Briefs">
           <Logotype height={26} />
         </Link>
@@ -44,9 +45,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </details>
       </header>
-      <div className="mt-8 lg:grid lg:grid-cols-[200px_1fr] lg:gap-10">
+      {/* The rail hugs the window's left edge; the content column sits beside it, not centred. */}
+      <div className="lg:grid lg:grid-cols-[220px_1fr]">
         <SideNav />
-        <main className="min-w-0">{children}</main>
+        <main className="min-w-0 max-w-5xl px-5 py-8">{children}</main>
       </div>
       <BottomNav />
     </div>

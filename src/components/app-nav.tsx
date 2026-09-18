@@ -24,8 +24,8 @@ function useActive() {
 export function SideNav() {
   const active = useActive();
   return (
-    <nav className="hidden lg:block" aria-label="Sections">
-      <ul className="sticky top-8 space-y-1">
+    <nav className="hidden border-r border-rule lg:block lg:min-h-[calc(100dvh-4.4rem)]" aria-label="Sections">
+      <ul className="sticky top-0 space-y-1 px-3 py-6">
         {ITEMS.map(({ href, label, icon: Icon }) => (
           <li key={href}>
             <Link
