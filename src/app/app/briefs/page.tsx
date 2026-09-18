@@ -42,7 +42,8 @@ export default async function BriefsPage({ searchParams }: { searchParams: Promi
               <li key={b.id} className="flex items-baseline gap-4 px-4 py-3">
                 <span className="fig w-16 shrink-0 text-xs text-ink-3">{timeOf.format(b.createdAt)}</span>
                 <div className="min-w-0">
-                  <Link href={`/app/briefs/${b.id}`} className="font-medium hover:underline">{b.title}</Link>
+                  {/* The "MacroBrief:" prefix belongs on email subjects and messages, not in the app's own list. */}
+                  <Link href={`/app/briefs/${b.id}`} className="font-medium hover:underline">{b.title.replace(/^MacroBrief:\s*/, "")}</Link>
                   <p className="text-xs text-ink-3">
                     {b.periodKey.endsWith("/now") ? "on demand" : "scheduled"}
                     {b.deliveries.length ? ` · ${b.deliveries.map((d) => `${d.channel.toLowerCase()} ${d.status.toLowerCase()}${d.error ? ` — ${d.error}` : ""}`).join(", ")}` : ""}
