@@ -163,6 +163,15 @@ export async function setChannel(formData: FormData): Promise<void> {
     update: { address, enabled: parsed.data.enabled, verified, ...(code ? { verifyCode: code, verifyExpires: new Date(Date.now() + CODE_TTL_MIN * 60_000) } : {}) },
     create: { userId: user.id, channel, address, enabled: parsed.data.enabled, verified, verifyCode: code, verifyExpires: code ? new Date(Date.now() + CODE_TTL_MIN * 60_000) : null },
   });
+  // The audio row carries voice and speed in the same form, so one Save
+  // stores all three; Free readers keep the defaults.
+  if (channel === "AUDIO" && planOf(user) !== "FREE") {
+    const voice = String(formData.get("voice") ?? user.audioVoice);
+    const speed = Number(formData.get("speed") ?? user.audioSpeed);
+    if ((voice === "MALE" || voice === "FEMALE") && isAudioSpeed(speed)) {
+      await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice, audioSpeed: speed } });
+    }
+  }
   revalidatePath("/app");
   if (code) {
     const sent = await sendCode(channel, address, code);
@@ -178,18 +187,6 @@ async function sendCode(channel: ChannelId, address: string, code: string): Prom
     return (await sendWhatsApp(address, { title: "MacroBrief code", body: text, link: "", text })).sent;
   }
   return false;
-}
-
-/** Voice and speed for audio briefs — a choice for paid plans; Free readers keep the defaults. */
-export async function setAudioVoice(formData: FormData): Promise<void> {
-  const user = await requireUser();
-  const voice = String(formData.get("voice"));
-  const speed = Number(formData.get("speed"));
-  if ((voice !== "MALE" && voice !== "FEMALE") || !isAudioSpeed(speed)) redirect("/app?error=voice");
-  if (planOf(user) === "FREE") redirect("/app?error=plan");
-  await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice, audioSpeed: speed } });
-  revalidatePath("/app");
-  redirect("/app");
 }
 
 export async function verifyChannel(formData: FormData): Promise<void> {

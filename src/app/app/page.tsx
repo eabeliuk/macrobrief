@@ -8,7 +8,7 @@ import { AUDIO_SPEEDS } from "@/lib/domain/voices";
 import { prisma } from "@/lib/prisma";
 import { planOf, requireUser } from "@/lib/session";
 
-import { addTopic, briefNow, deleteTopic, setAudioVoice, setChannel, updateSchedule, verifyChannel } from "./actions";
+import { addTopic, briefNow, deleteTopic, setChannel, updateSchedule, verifyChannel } from "./actions";
 
 const ERRORS: Record<string, string> = {
   topic: "A topic needs a name of at least two characters.",
@@ -26,7 +26,7 @@ const ERRORS: Record<string, string> = {
 
 const CHANNEL_HELP: Record<Exclude<ChannelId, "WEB" | "TEXT">, { label: string; placeholder: string; note?: string }> = {
   EMAIL: { label: "Email", placeholder: "you@example.com" },
-  AUDIO: { label: "Audio", placeholder: "(no address needed)", note: "The brief read aloud — a player in the app and a Listen link in the email." },
+  AUDIO: { label: "Audio", placeholder: "", note: undefined },
   WHATSAPP: { label: "WhatsApp", placeholder: "+56 9 1234 5678", note: "A short digest with a link to the full brief. Include the country code." },
   INSTAGRAM: { label: "Instagram", placeholder: "@handle", note: "Coming in M3 — you DM the bot, it replies with your brief." },
 };
@@ -144,38 +144,33 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   </label>
                 </div>
                 <div className="flex gap-2">
-                  <input className="input" name="address" placeholder={help.placeholder} defaultValue={row?.address ?? (channel === "EMAIL" ? user.email ?? "" : "")} disabled={!allowed} />
+                  {channel !== "AUDIO" ? (
+                    <input className="input" name="address" placeholder={help.placeholder} defaultValue={row?.address ?? (channel === "EMAIL" ? user.email ?? "" : "")} disabled={!allowed} />
+                  ) : (
+                    <span className="flex-1 self-center text-xs text-ink-3">Plays in the app; the email gets a Listen link.</span>
+                  )}
                   <button type="submit" className="btn-quiet" disabled={!allowed}>Save</button>
                 </div>
                 {help.note ? <p className="text-xs text-ink-3">{help.note}</p> : null}
                 {channel === "AUDIO" ? (
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
                     <span className="label">Voice</span>
-                    <select
-                      name="voice"
-                      form="audio-voice"
-                      className="input w-auto py-1 text-xs"
-                      defaultValue={user.audioVoice}
-                      disabled={planOf(user) === "FREE"}
-                    >
+                    <select name="voice" className="input w-auto py-1 text-xs" defaultValue={user.audioVoice} disabled={planOf(user) === "FREE"}>
                       <option value="MALE">Male</option>
                       <option value="FEMALE">Female</option>
                     </select>
                     <span className="label">Speed</span>
-                    <select name="speed" form="audio-voice" className="input w-auto py-1 text-xs" defaultValue={String(user.audioSpeed)} disabled={planOf(user) === "FREE"}>
+                    <select name="speed" className="input w-auto py-1 text-xs" defaultValue={String(user.audioSpeed)} disabled={planOf(user) === "FREE"}>
                       {AUDIO_SPEEDS.map((r) => (
                         <option key={r} value={String(r)}>{r}×</option>
                       ))}
                     </select>
-                    <button type="submit" form="audio-voice" className="btn-quiet px-2 py-1 text-xs" disabled={planOf(user) === "FREE"}>Save</button>
                     {planOf(user) === "FREE" ? <span className="text-xs text-ink-3">paid plans choose</span> : null}
                   </div>
                 ) : null}
               </form>
             );
           })}
-          {/* The voice select lives visually inside the audio row but posts to its own action. */}
-          <form id="audio-voice" action={setAudioVoice} />
           {channels.filter((c) => !c.verified && c.channel !== "AUDIO").map((c) => (
             <form key={`verify-${c.channel}`} action={verifyChannel} className="flex items-end gap-2 border-t border-rule pt-3">
               <input type="hidden" name="channel" value={c.channel} />
