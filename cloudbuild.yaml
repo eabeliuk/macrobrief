@@ -98,6 +98,9 @@ steps:
         add AUTH_GOOGLE_SECRET macrobrief-google-secret
         add AUTH_RESEND_KEY macrobrief-resend-key
         add ANTHROPIC_API_KEY macrobrief-anthropic-key
+        add TELNYX_API_KEY macrobrief-telnyx-key
+        add TELNYX_WHATSAPP_FROM macrobrief-telnyx-whatsapp-from
+        add TELNYX_WA_TEMPLATE macrobrief-telnyx-wa-template
         add TWILIO_ACCOUNT_SID macrobrief-twilio-sid
         add TWILIO_AUTH_TOKEN macrobrief-twilio-token
         add TWILIO_WHATSAPP_FROM macrobrief-twilio-whatsapp-from

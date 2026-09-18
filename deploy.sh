@@ -40,6 +40,9 @@ REQUIRED_SECRETS=(
   macrobrief-google-secret
   macrobrief-resend-key
   macrobrief-anthropic-key
+  macrobrief-telnyx-key
+  macrobrief-telnyx-whatsapp-from
+  macrobrief-telnyx-wa-template
   macrobrief-twilio-sid
   macrobrief-twilio-token
   macrobrief-twilio-whatsapp-from
