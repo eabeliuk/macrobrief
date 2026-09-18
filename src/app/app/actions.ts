@@ -106,12 +106,12 @@ const ScheduleInput = z.object({
 export async function updateSchedule(formData: FormData): Promise<void> {
   const user = await requireUser();
   const parsed = ScheduleInput.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) redirect("/app/schedule?error=schedule");
+  if (!parsed.success) redirect("/app/settings?error=schedule");
   const cadence: CadenceId = cadenceAllowed(planOf(user), parsed.data.cadence) ? parsed.data.cadence : "WEEKLY";
   try {
     Intl.DateTimeFormat("en-US", { timeZone: parsed.data.timezone });
   } catch {
-    redirect("/app/schedule?error=timezone");
+    redirect("/app/settings?error=timezone");
   }
   const { hour12, meridiem, weekday, timezone } = parsed.data;
   const hour = (hour12 % 12) + (meridiem === "PM" ? 12 : 0);
@@ -120,8 +120,8 @@ export async function updateSchedule(formData: FormData): Promise<void> {
     update: { cadence, hour, weekday, timezone },
     create: { userId: user.id, cadence, hour, weekday, timezone },
   });
-  revalidatePath("/app/schedule");
-  redirect("/app/schedule");
+  revalidatePath("/app/settings");
+  redirect("/app/settings");
 }
 
 const ChannelInput = z.object({
@@ -137,18 +137,18 @@ export async function setChannel(formData: FormData): Promise<void> {
     address: formData.get("address") ?? "",
     enabled: formData.get("enabled") === "on",
   });
-  if (!parsed.success) redirect("/app/schedule?error=channel");
+  if (!parsed.success) redirect("/app/settings?error=channel");
   const channel: ChannelId = parsed.data.channel;
-  if (!channelAllowed(planOf(user), channel)) redirect("/app/schedule?error=plan");
+  if (!channelAllowed(planOf(user), channel)) redirect("/app/settings?error=plan");
   // AUDIO has no address: it lives in the app and rides along in the email.
   let address = parsed.data.address || (channel === "EMAIL" ? user.email ?? "" : channel === "AUDIO" ? "app" : "");
   if (channel === "WHATSAPP") {
     // Refuse a number without a country code rather than guess one.
     const phone = address ? normalizeE164(address) : null;
-    if (!phone) redirect("/app/schedule?error=phone");
+    if (!phone) redirect("/app/settings?error=phone");
     address = phone;
   }
-  if (!address) redirect("/app/schedule?error=address");
+  if (!address) redirect("/app/settings?error=address");
 
   const existing = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
   const unchanged = existing?.address === address;
@@ -172,12 +172,12 @@ export async function setChannel(formData: FormData): Promise<void> {
       await prisma.user.update({ where: { id: user.id }, data: { audioVoice: voice, audioSpeed: speed } });
     }
   }
-  revalidatePath("/app/schedule");
+  revalidatePath("/app/settings");
   if (code) {
     const sent = await sendCode(channel, address, code);
-    redirect(sent ? `/app/schedule?notice=${encodeURIComponent(`Code sent to ${address} — enter it below to verify.`)}` : `/app/schedule?error=codesend`);
+    redirect(sent ? `/app/settings?notice=${encodeURIComponent(`Code sent to ${address} — enter it below to verify.`)}` : `/app/settings?error=codesend`);
   }
-  redirect("/app/schedule");
+  redirect("/app/settings");
 }
 
 async function sendCode(channel: ChannelId, address: string, code: string): Promise<boolean> {
@@ -193,11 +193,11 @@ export async function verifyChannel(formData: FormData): Promise<void> {
   const user = await requireUser();
   const channel = String(formData.get("channel")) as ChannelId;
   const row = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel: channel as Channel } } });
-  if (!row) redirect("/app/schedule?error=channel");
-  if (!codeMatches(String(formData.get("code") ?? ""), row.verifyCode, row.verifyExpires, new Date())) redirect("/app/schedule?error=code");
+  if (!row) redirect("/app/settings?error=channel");
+  if (!codeMatches(String(formData.get("code") ?? ""), row.verifyCode, row.verifyExpires, new Date())) redirect("/app/settings?error=code");
   await prisma.deliveryChannel.update({ where: { id: row.id }, data: { verified: true, verifyCode: null, verifyExpires: null } });
-  revalidatePath("/app/schedule");
-  redirect(`/app/schedule?notice=${encodeURIComponent(`${row.address} verified.`)}`);
+  revalidatePath("/app/settings");
+  redirect(`/app/settings?notice=${encodeURIComponent(`${row.address} verified.`)}`);
 }
 
 /**

@@ -12,8 +12,8 @@ const ProfileInput = z.object({ name: z.string().trim().max(80) });
 export async function updateProfile(formData: FormData): Promise<void> {
   const user = await requireUser();
   const parsed = ProfileInput.safeParse({ name: formData.get("name") ?? "" });
-  if (!parsed.success) redirect("/app/settings?error=name");
+  if (!parsed.success) redirect("/app/profile?error=name");
   await prisma.user.update({ where: { id: user.id }, data: { name: parsed.data.name || null } });
   revalidatePath("/app");
-  redirect("/app/settings?saved=1");
+  redirect("/app/profile?saved=1");
 }

@@ -12,7 +12,6 @@ import { usePathname } from "next/navigation";
 const ITEMS = [
   { href: "/app/topics", label: "Topics", icon: TopicsIcon },
   { href: "/app/briefs", label: "Briefs", icon: BriefsIcon },
-  { href: "/app/schedule", label: "Schedule", icon: ScheduleIcon },
   { href: "/app/settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -76,14 +75,6 @@ function BriefsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden>
       <path d="M6 3h9l4 4v14H6z M15 3v4h4 M9 12h6M9 16h6" />
-    </svg>
-  );
-}
-function ScheduleIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 7.5V12l3 2" />
     </svg>
   );
 }

@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </summary>
           <div className="absolute right-0 z-10 mt-2 w-64 rounded-lg border border-rule bg-card p-2 text-sm shadow-lg">
             <p className="px-3 py-2 text-xs text-ink-3">{user.email}</p>
-            <Link href="/app/settings" className="block rounded-md px-3 py-2 hover:bg-page">Profile settings</Link>
+            <Link href="/app/profile" className="block rounded-md px-3 py-2 hover:bg-page">Profile</Link>
             <Link href="/app/billing" className="block rounded-md px-3 py-2 hover:bg-page">
               Billing <span className="text-ink-3">· {plan.name}</span>
             </Link>
