@@ -22,6 +22,9 @@ export function isGoogleNewsLink(link: string): boolean {
   }
 }
 
+/** Why the last resolution failed — one line per cron run is enough to diagnose a wall. */
+export let lastResolveError: string | null = null;
+
 export async function resolveGoogleNewsLink(link: string): Promise<string | null> {
   const id = ARTICLE_PATH.exec(new URL(link).pathname)?.[1];
   if (!id) return null;
@@ -29,7 +32,10 @@ export async function resolveGoogleNewsLink(link: string): Promise<string | null
     const page = await text(`https://news.google.com/articles/${id}`);
     const sig = /data-n-a-sg="([^"]+)"/.exec(page)?.[1];
     const ts = /data-n-a-ts="([^"]+)"/.exec(page)?.[1];
-    if (!sig || !ts) return null;
+    if (!sig || !ts) {
+      lastResolveError = `no signature in article page (${page.length} bytes, starts "${page.slice(0, 60).replace(/\s+/g, " ")}")`;
+      return null;
+    }
 
     const req = [
       "garturlreq",
@@ -43,14 +49,20 @@ export async function resolveGoogleNewsLink(link: string): Promise<string | null
 
     // Response is ")]}'" then length-prefixed JSON chunks; find the one with our answer.
     const chunk = raw.split("\n").find((line) => line.includes("garturlres"));
-    if (!chunk) return null;
+    if (!chunk) {
+      lastResolveError = `no garturlres in batchexecute response (${raw.length} bytes)`;
+      return null;
+    }
     const outer = JSON.parse(chunk) as unknown[][];
     const payload = outer.find((row) => typeof row?.[2] === "string" && (row[2] as string).includes("garturlres"))?.[2] as string | undefined;
     if (!payload) return null;
     const inner = JSON.parse(payload) as unknown[];
     const url = inner[1];
-    return typeof url === "string" && /^https?:\/\//i.test(url) ? url : null;
-  } catch {
+    if (typeof url === "string" && /^https?:\/\//i.test(url)) return url;
+    lastResolveError = "batchexecute answered without a URL";
+    return null;
+  } catch (error) {
+    lastResolveError = (error as Error).message;
     return null;
   }
 }

@@ -2,7 +2,7 @@ import type { Source } from "@prisma/client";
 
 import { canonicalLink } from "@/lib/domain/relevance";
 import { fetchFeed } from "@/lib/fetch-feed";
-import { isGoogleNewsLink, resolveGoogleNewsLink } from "@/lib/google-news";
+import { isGoogleNewsLink, lastResolveError, resolveGoogleNewsLink } from "@/lib/google-news";
 import { prisma } from "@/lib/prisma";
 import { mapWithConcurrency } from "@/lib/sources";
 
@@ -98,15 +98,16 @@ async function resolveNewGoogleLinks(sourceId: string, links: string[]): Promise
 /** Resolve Google links stored before resolution existed. Returns how many changed. */
 export async function backfillGoogleLinks(): Promise<number> {
   const items = await prisma.item.findMany({
-    where: { link: { startsWith: "https://news.google.com/" } },
+    where: { OR: [{ link: { startsWith: "https://news.google.com/" } }, { link: { contains: "bing.com/news/apiclick" } }] },
     select: { id: true, sourceId: true, link: true },
     orderBy: { fetchedAt: "desc" },
     take: BACKFILL_PER_RUN,
   });
   let changed = 0;
   await mapWithConcurrency(items, RESOLVE_CONCURRENCY, async (item) => {
-    const resolved = await resolveGoogleNewsLink(item.link);
-    if (!resolved) return;
+    // Bing wraps are decoded locally; Google links need the resolver.
+    const resolved = isGoogleNewsLink(item.link) ? await resolveGoogleNewsLink(item.link) : canonicalLink(item.link);
+    if (!resolved || resolved === item.link) return;
     // The resolved URL may already be stored for this source (a later poll
     // resolved it at ingest): keep that row, drop the opaque one.
     const clash = await prisma.item.findUnique({ where: { sourceId_link: { sourceId: item.sourceId, link: resolved } } });
@@ -114,6 +115,7 @@ export async function backfillGoogleLinks(): Promise<number> {
     else await prisma.item.update({ where: { id: item.id }, data: { link: resolved } });
     changed++;
   });
+  if (items.length && !changed && lastResolveError) console.warn(`[resolve] 0/${items.length} resolved — last error: ${lastResolveError}`);
   return changed;
 }
 
