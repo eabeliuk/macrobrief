@@ -45,15 +45,15 @@ export default async function LandingPage() {
         </Link>
       </header>
 
-      {/* Statement + globe: 3:4 here; the label/content rows below keep 2:5. */}
+      {/* Statement + globe: 4:3 here so each line of the statement holds; the rows below keep 2:5. */}
       <section className="grid gap-10 py-12 lg:grid-cols-7 lg:items-center">
-        <div className="lg:col-span-3">
-          <h1 className="text-[2.6rem] font-bold leading-[1.05] tracking-tight">
+        <div className="lg:col-span-4">
+          <h1 className="text-[2.4rem] font-bold leading-[1.08] tracking-tight lg:whitespace-nowrap">
             Tell it what you follow.
             <br />
             It scans the world.
             <br />
-            It delivers live updates.
+            Receive live updates.
           </h1>
           <p className="mt-6 max-w-lg text-lg text-ink-2">
             Name a few topics. MacroBrief finds the sources, reads everything they publish, decides what matters, and
@@ -67,8 +67,8 @@ export default async function LandingPage() {
             Below: the editor&apos;s sheet for three topics we follow ourselves, ranked {budget.compiledAt ? "minutes" : "moments"} ago. Not a mockup.
           </p>
         </div>
-        <div className="lg:col-span-4">
-          <GlobeLive desks={budget.desks} className="mx-auto w-full max-w-[520px]" />
+        <div className="lg:col-span-3">
+          <GlobeLive desks={budget.desks} className="mx-auto w-full max-w-[460px]" />
         </div>
       </section>
 
