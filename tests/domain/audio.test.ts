@@ -35,7 +35,7 @@ describe("audioScript", () => {
   });
   it("speaks the signposts in the brief's language", () => {
     const es = audioScript(composed, "es");
-    expect(es).toContain("Chilean lithium. Noticia 1 de 2.");
+    expect(es).toContain("Chilean lithium.\n\nNoticia 1 de 2.");
     expect(es).not.toMatch(/\d+ noticias sobre/); // no story count outside English
     expect(es).toContain("Noticia 1 de 2.");
     expect(es).toContain("Siguiente tema.");
