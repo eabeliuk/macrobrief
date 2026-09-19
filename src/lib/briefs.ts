@@ -106,6 +106,7 @@ async function composeFor(
         windowStart: period.windowStart,
         windowEnd: period.windowEnd,
         title: composed.title,
+        lang,
         bodyText: renderText(composed, { linkFor: (story) => (story.itemId ? `${siteUrl()}/l/${story.itemId}` : story.link) }),
         bodyMd: renderMarkdown(composed),
         model: MODEL,

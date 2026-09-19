@@ -271,6 +271,8 @@ model Brief {
   windowEnd   DateTime
 
   title    String
+  /// Language the brief was written in (from its topics) — the voice follows it.
+  lang     String @default("en")
   /// Full brief as plain text — the canonical rendering; email and TEXT send this.
   bodyText String @db.Text
   /// Same content with links, for the web view.
