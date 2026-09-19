@@ -9,7 +9,8 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { siteUrl } from "@/lib/stripe/client";
 
-import { shareBrief, unshareBrief } from "../share-actions";
+import { regenerateAudio, shareBrief, unshareBrief } from "../share-actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export default async function BriefPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ shared?: string }> }) {
   const { id } = await params;
@@ -32,10 +33,18 @@ export default async function BriefPage({ params, searchParams }: { params: Prom
         </p>
       </div>
 
-      {brief.audioUrl ? (
+      {brief.audioUrl || user.isSuperAdmin ? (
         <section className="card">
-          <h2 className="font-semibold">Listen</h2>
-          <audio controls preload="none" src={brief.audioUrl} className="mt-3 w-full" />
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Listen{brief.audioUrl ? <span className="wire ml-2 text-ink-3">{brief.lang}</span> : null}</h2>
+            {user.isSuperAdmin ? (
+              <form action={regenerateAudio} title="Staff: re-synthesise with the brief's language and your current voice/speed">
+                <input type="hidden" name="briefId" value={brief.id} />
+                <SubmitButton className="btn-quiet px-3 py-1 text-xs" pending="Synthesising…">{brief.audioUrl ? "Regenerate audio" : "Make audio"} · staff</SubmitButton>
+              </form>
+            ) : null}
+          </div>
+          {brief.audioUrl ? <audio controls preload="none" src={brief.audioUrl} className="mt-3 w-full" /> : null}
         </section>
       ) : null}
 

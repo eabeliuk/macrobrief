@@ -30,3 +30,21 @@ export async function unshareBrief(formData: FormData): Promise<void> {
   revalidatePath(`/app/briefs/${id}`);
   redirect(`/app/briefs/${id}`);
 }
+
+/** Staff: re-make a brief's audio — after a voice, speed or language fix. */
+export async function regenerateAudio(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  if (!user.isSuperAdmin) redirect("/app/briefs");
+  const id = String(formData.get("briefId"));
+  const brief = await prisma.brief.findFirst({ where: { id, userId: user.id }, include: { sections: { orderBy: { position: "asc" }, take: 1, include: { topic: { select: { lang: true } } } } } });
+  if (!brief) redirect("/app/briefs");
+  // The language the brief was written in is its first topic's.
+  const lang = brief.sections[0]?.topic.lang ?? brief.lang;
+  await prisma.brief.update({ where: { id }, data: { lang, audioUrl: null, audioSeconds: null } });
+  await prisma.delivery.deleteMany({ where: { briefId: id, channel: "AUDIO" } });
+  await prisma.delivery.create({ data: { briefId: id, channel: "AUDIO", address: "app" } });
+  const { deliverPending } = await import("@/lib/delivery");
+  await deliverPending();
+  revalidatePath(`/app/briefs/${id}`);
+  redirect(`/app/briefs/${id}`);
+}

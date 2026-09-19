@@ -135,6 +135,20 @@ export async function dropUntitled(): Promise<number> {
   return count;
 }
 
+/**
+ * Briefs written before `lang` was recorded carry the column default. Give
+ * each one its first section's topic language; a no-op once every brief
+ * has been composed with the column present.
+ */
+export async function backfillBriefLang(): Promise<number> {
+  const rows = await prisma.$executeRawUnsafe(`
+    UPDATE "Brief" b SET lang = t.lang
+    FROM "BriefSection" s JOIN "Topic" t ON t.id = s."topicId"
+    WHERE s."briefId" = b.id AND s.position = 0 AND b.lang <> t.lang
+  `);
+  return rows;
+}
+
 /** Items older than the retention window, by published date or fetch date when the feed gave none. */
 export async function pruneItems(now: Date): Promise<number> {
   const cutoff = new Date(now.getTime() - PRUNE_AFTER_DAYS * 86_400_000);
