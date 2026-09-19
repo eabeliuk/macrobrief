@@ -101,7 +101,8 @@ async function send(delivery: PendingDelivery): Promise<Outcome> {
       const mp3 = await synthesize(audioSegments(composedOf(delivery.brief), lang), lang, delivery.brief.user.audioVoice, delivery.brief.user.audioSpeed);
       await saveObject(`briefs/${delivery.brief.id}.mp3`, mp3, "audio/mpeg");
       // The app streams it after an ownership check; the URL is never a public object.
-      await prisma.brief.update({ where: { id: delivery.brief.id }, data: { audioUrl: `/app/briefs/${delivery.brief.id}/audio`, audioSeconds: mp3Seconds(mp3.length) } });
+      // A version stamp in the URL: a regenerated file must never be served from the browser's cache of the old one.
+      await prisma.brief.update({ where: { id: delivery.brief.id }, data: { audioUrl: `/app/briefs/${delivery.brief.id}/audio?v=${Date.now()}`, audioSeconds: mp3Seconds(mp3.length) } });
       return { status: "SENT" };
     }
     case "WHATSAPP": {

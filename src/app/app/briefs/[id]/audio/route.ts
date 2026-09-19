@@ -15,6 +15,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const object = await readObject(`briefs/${id}.mp3`);
   if (!object) return NextResponse.json({ error: "Audio not found." }, { status: 404 });
   return new NextResponse(new Uint8Array(object.data), {
-    headers: { "Content-Type": object.contentType, "Content-Length": String(object.data.length), "Cache-Control": "private, max-age=3600" },
+    headers: { "Content-Type": object.contentType, "Content-Length": String(object.data.length), "Cache-Control": "private, no-cache" },
   });
 }

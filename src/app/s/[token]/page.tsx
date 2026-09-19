@@ -39,7 +39,7 @@ export default async function SharedBriefPage({ params }: { params: Promise<{ to
         {brief.audioUrl ? (
           <section className="card">
             <h2 className="font-semibold">Listen{brief.audioSeconds ? <span className="wire ml-2 text-ink-3">{minutesLabel(brief.audioSeconds)}</span> : null}</h2>
-            <audio controls preload="none" src={`/s/${token}/audio`} className="mt-3 w-full" />
+            <audio controls preload="none" src={`/s/${token}/audio?v=${brief.audioUrl.split("?v=")[1] ?? "0"}`} className="mt-3 w-full" />
           </section>
         ) : null}
         <BriefBody sections={brief.sections} />
