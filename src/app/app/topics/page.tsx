@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Reveal } from "@/components/reveal";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, Notice } from "@/components/ui";
 import { PLANS } from "@/lib/domain/plans";
@@ -20,21 +21,14 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
       {error ? <Notice tone="warn">{ERRORS[error] ?? error}</Notice> : null}
       {notice ? <Notice>{notice}</Notice> : null}
 
-      {/* The add form is behind a button: a native disclosure, open only when asked. */}
-      <details className="group">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Topics <span className="wire ml-2 align-middle text-ink-3">{topics.length} / {plan.maxTopics}</span>
-          </h1>
-          {topics.length < plan.maxTopics ? (
-            <summary className="btn cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <span className="group-open:hidden">Add topic</span>
-              <span className="hidden group-open:inline">Close</span>
-            </summary>
-          ) : null}
-        </div>
-        {topics.length < plan.maxTopics ? (
-          <form action={addTopic} className="card mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold tracking-tight">
+          Topics <span className="wire ml-2 align-middle text-ink-3">{topics.length} / {plan.maxTopics}</span>
+        </h1>
+      </div>
+      {topics.length < plan.maxTopics ? (
+        <Reveal label="Add topic">
+          <form action={addTopic} className="card grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
             <Field label="Topic" name="name" required placeholder="Chilean lithium policy" />
             <Field label="Search query (optional)" name="query" placeholder="lithium chile royalty" />
             <label className="block">
@@ -50,8 +44,8 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
             <SubmitButton pending="Finding sources… ~30 s">Add topic</SubmitButton>
             <p className="text-xs text-ink-3 sm:col-span-4">Adding a topic takes about 30 seconds: publisher feeds are proposed by the model, each is fetched to prove it works, then everything is polled once.</p>
           </form>
-        ) : null}
-      </details>
+        </Reveal>
+      ) : null}
       <ul className="divide-y divide-rule rounded-lg border border-rule bg-card">
         {topics.map((t) => (
           <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
