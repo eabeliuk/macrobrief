@@ -51,8 +51,10 @@ export function audioSegments(c: Composed, lang = "en"): Segment[] {
   c.sections.forEach((section, si) => {
     const n = section.stories.length;
     // "Next topic." before every topic but the first — the spoken equivalent of a heading.
+    // The story count is an English habit; other languages introduce the topic by name.
     const lead = si > 0 ? `${w.next} ` : "";
-    const intro = `${lead}${n ? w.topic(section.heading, n) : `${sentence(section.heading)} ${w.nothing}`}`;
+    const named = langOf(lang) === "en" && n ? w.topic(section.heading, n) : sentence(section.heading);
+    const intro = `${lead}${n ? named : `${sentence(section.heading)} ${w.nothing}`}`;
     out.push({ ssml: `<break time="${TOPIC_PAUSE}"/><p>${esc(intro)}</p>`, text: intro });
     section.stories.forEach((story, i) => {
       const sign = n > 1 ? `${w.story(i + 1, n)} ` : "";
