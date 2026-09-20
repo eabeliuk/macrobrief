@@ -50,6 +50,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <SideNav />
         <main className="min-w-0 max-w-5xl px-5 py-8">{children}</main>
       </div>
+      <footer className="px-5 py-6">
+        <p className="wire text-ink-3">© {new Date().getUTCFullYear()} MacroBrief · a Sakamoto Labs LLC product</p>
+      </footer>
       <BottomNav />
     </div>
   );

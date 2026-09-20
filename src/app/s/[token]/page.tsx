@@ -51,6 +51,7 @@ export default async function SharedBriefPage({ params }: { params: Promise<{ to
           <Link href="/" className="text-accent hover:underline">See how it works →</Link>
         </p>
       </footer>
+      <p className="wire mt-6 text-ink-3">© {new Date().getUTCFullYear()} MacroBrief · a Sakamoto Labs LLC product</p>
     </main>
   );
 }

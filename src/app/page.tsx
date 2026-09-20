@@ -191,7 +191,7 @@ export default async function LandingPage() {
             The whole world behind. One thing in front of it, choosing what reaches you.
           </p>
           <Link href="/login" className="btn mt-6">Start free</Link>
-          <p className="wire mt-10 text-ink-3">© {now.getUTCFullYear()} MacroBrief · A Macro brand</p>
+          <p className="wire mt-10 text-ink-3">© {now.getUTCFullYear()} MacroBrief · A Macro brand · a Sakamoto Labs LLC product</p>
         </div>
       </section>
     </main>
