@@ -6,9 +6,10 @@ import { cadenceAllowed, channelAllowed, type ChannelId } from "@/lib/domain/pla
 import { AUDIO_SPEEDS } from "@/lib/domain/voices";
 import { prisma } from "@/lib/prisma";
 import { planOf, requireUser } from "@/lib/session";
+import { whatsappSenderNumber } from "@/lib/whatsapp";
 
 import { ERRORS } from "../_shared";
-import { setAudioPrefs, setChannelAddress, toggleChannel, updateSchedule, verifyChannel } from "../actions";
+import { resendCode, setAudioPrefs, setChannelAddress, toggleChannel, updateSchedule, verifyChannel } from "../actions";
 
 /**
  * Where and when the brief arrives. Every control saves itself: toggles
@@ -33,6 +34,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   ]);
   const rowOf = new Map(channels.map((c) => [c.channel, c]));
   const plan = planOf(user);
+  const sender = whatsappSenderNumber();
 
   return (
     <div className="space-y-6">
@@ -89,11 +91,29 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                   </form>
                 ) : null}
 
+                {unverified && ch.id === "WHATSAPP" && sender ? (
+                  // Meta only lets a business text a number that messaged it in the last 24 h,
+                  // so the reader opens the conversation first and then asks for the code.
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-ink-2">
+                    <span>
+                      1. Send us any message on WhatsApp:{" "}
+                      <a className="text-accent underline" href={`https://wa.me/${sender.replace(/\D/g, "")}?text=${encodeURIComponent("MacroBrief")}`} target="_blank" rel="noreferrer">
+                        open chat with {sender}
+                      </a>
+                    </span>
+                    <form action={resendCode} className="inline-flex items-center gap-2">
+                      <input type="hidden" name="channel" value={ch.id} />
+                      <span>2.</span>
+                      <button type="submit" className="btn-quiet py-1 text-xs">Send code</button>
+                    </form>
+                  </div>
+                ) : null}
+
                 {unverified ? (
                   <form action={verifyChannel} className="flex items-end gap-2">
                     <input type="hidden" name="channel" value={ch.id} />
                     <div className="flex-1">
-                      <span className="label mb-1">Enter the code sent to {row?.address}</span>
+                      <span className="label mb-1">{ch.id === "WHATSAPP" ? "3. Enter the code" : `Enter the code sent to ${row?.address}`}</span>
                       <input className="input font-mono" name="code" inputMode="numeric" placeholder="123456" required />
                     </div>
                     <button type="submit" className="btn-quiet">Verify</button>
@@ -101,7 +121,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 ) : null}
 
                 {ch.id === "AUDIO" && allowed ? (
-                  <form action={setAudioPrefs} className="flex flex-wrap items-center gap-2">
+                  <form action={setAudioPrefs} className="flex items-center gap-2">
                     <span className="label">Voice</span>
                     <AutoSelect name="voice" className="input w-auto py-1 text-xs" defaultValue={user.audioVoice} disabled={plan === "FREE"}>
                       <option value="MALE">Male</option>

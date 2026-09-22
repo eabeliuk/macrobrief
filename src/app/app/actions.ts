@@ -197,9 +197,27 @@ async function sendCode(channel: string, address: string, code: string): Promise
   const text = `Your MacroBrief verification code is ${code}. It expires in ${CODE_TTL_MIN} minutes.`;
   if (channel === "EMAIL") return (await sendEmail({ to: address, subject: `${code} is your MacroBrief code`, text })).sent;
   if (channel === "WHATSAPP" && whatsappConfigured()) {
-    return (await sendWhatsApp(address, { title: "MacroBrief code", body: text, link: "", text })).sent;
+    return (await sendWhatsApp(address, { title: "MacroBrief code", body: text, link: "", text }, { freeForm: true })).sent;
   }
   return false;
+}
+
+/**
+ * A fresh code on request. WhatsApp needs it: the first code (sent on save)
+ * bounces until the reader has messaged the sender, so the page asks them to
+ * do that and then tap Send code.
+ */
+export async function resendCode(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const channel = String(formData.get("channel"));
+  if (!isPushChannel(channel)) redirect("/app/settings?error=channel");
+  const row = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
+  if (!row?.address || row.verified) redirect("/app/settings?error=channel");
+  const code = newCode();
+  await prisma.deliveryChannel.update({ where: { id: row.id }, data: { verifyCode: code, verifyExpires: new Date(Date.now() + CODE_TTL_MIN * 60_000) } });
+  revalidatePath("/app/settings");
+  const sent = await sendCode(channel, row.address, code);
+  redirect(sent ? `/app/settings?notice=${encodeURIComponent(`Code sent to ${row.address} — enter it to verify.`)}` : `/app/settings?error=codesend`);
 }
 
 export async function verifyChannel(formData: FormData): Promise<void> {

@@ -31,10 +31,23 @@ export function whatsappConfigured(): boolean {
   return whatsappProvider() !== null;
 }
 
-export async function sendWhatsApp(to: string, message: WhatsAppMessage): Promise<Outcome> {
+/** The number readers message to open Meta's 24 h window (the click-to-chat link); null when unconfigured. */
+export function whatsappSenderNumber(): string | null {
   const provider = whatsappProvider();
-  if (provider === "telnyx") return sendViaTelnyx(to, message);
-  if (provider === "twilio") return sendViaTwilio(to, message);
+  if (provider === "telnyx") return e164(process.env.TELNYX_WHATSAPP_FROM ?? "") || null;
+  if (provider === "twilio") return e164(process.env.TWILIO_WHATSAPP_FROM ?? "") || null;
+  return null;
+}
+
+/**
+ * `freeForm` skips the approved template: the template's copy is the daily
+ * brief, so anything else (a verification code) goes as plain text — which
+ * Meta only delivers inside 24 h of the reader messaging the sender.
+ */
+export async function sendWhatsApp(to: string, message: WhatsAppMessage, opts: { freeForm?: boolean } = {}): Promise<Outcome> {
+  const provider = whatsappProvider();
+  if (provider === "telnyx") return sendViaTelnyx(to, message, opts);
+  if (provider === "twilio") return sendViaTwilio(to, message, opts);
   return { sent: false, error: "whatsapp not configured" };
 }
 
@@ -57,11 +70,11 @@ export function telnyxPayload(from: string, to: string, message: WhatsAppMessage
   };
 }
 
-async function sendViaTelnyx(to: string, message: WhatsAppMessage): Promise<Outcome> {
+async function sendViaTelnyx(to: string, message: WhatsAppMessage, opts: { freeForm?: boolean }): Promise<Outcome> {
   const key = process.env.TELNYX_API_KEY;
   const from = process.env.TELNYX_WHATSAPP_FROM;
   if (!key || !from) return { sent: false, error: "telnyx not configured" };
-  const name = process.env.TELNYX_WA_TEMPLATE;
+  const name = opts.freeForm ? undefined : process.env.TELNYX_WA_TEMPLATE;
   const template = name ? { name, language: process.env.TELNYX_WA_TEMPLATE_LANG || "en" } : null;
 
   const response = await fetch("https://api.telnyx.com/v2/messages/whatsapp", {
@@ -85,14 +98,14 @@ async function sendViaTelnyx(to: string, message: WhatsAppMessage): Promise<Outc
 
 // ── Twilio ──────────────────────────────────────────────────────────────
 
-async function sendViaTwilio(to: string, message: WhatsAppMessage): Promise<Outcome> {
+async function sendViaTwilio(to: string, message: WhatsAppMessage, opts: { freeForm?: boolean }): Promise<Outcome> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM;
   if (!sid || !token || !from) return { sent: false, error: "twilio not configured" };
 
   const form = new URLSearchParams({ To: `whatsapp:${e164(to)}`, From: from.startsWith("whatsapp:") ? from : `whatsapp:${from}` });
-  const template = process.env.TWILIO_WA_TEMPLATE_SID;
+  const template = opts.freeForm ? undefined : process.env.TWILIO_WA_TEMPLATE_SID;
   if (template) {
     form.set("ContentSid", template);
     const [title, body, link] = templateParams(message);

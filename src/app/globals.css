@@ -52,18 +52,21 @@ body {
   color: var(--ink);
 }
 
-.btn {
-  @apply inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40;
-}
-.btn-quiet {
-  @apply inline-flex items-center justify-center rounded-md border border-rule bg-card px-4 py-2 text-sm font-medium text-ink hover:bg-page disabled:opacity-40;
-}
-.input {
-  @apply w-full rounded-md border border-rule bg-card px-3 py-2 text-sm outline-none focus:border-accent;
-}
-.label {
-  @apply block text-xs font-medium uppercase tracking-wide text-ink-3;
-}
-.card {
-  @apply rounded-lg border border-rule bg-card p-5;
+/* Layered so per-element utilities (w-auto, border-warn, py-1) win over these defaults. */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40;
+  }
+  .btn-quiet {
+    @apply inline-flex items-center justify-center rounded-md border border-rule bg-card px-4 py-2 text-sm font-medium text-ink hover:bg-page disabled:opacity-40;
+  }
+  .input {
+    @apply w-full rounded-md border border-rule bg-card px-3 py-2 text-sm outline-none focus:border-accent;
+  }
+  .label {
+    @apply block text-xs font-medium uppercase tracking-wide text-ink-3;
+  }
+  .card {
+    @apply rounded-lg border border-rule bg-card p-5;
+  }
 }

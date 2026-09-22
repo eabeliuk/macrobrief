@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { telnyxPayload, whatsappProvider } from "@/lib/whatsapp";
+import { sendWhatsApp, telnyxPayload, whatsappProvider, whatsappSenderNumber } from "@/lib/whatsapp";
 
 const msg = { title: "MacroBrief — Thu", body: "*Lithium*\n• Story", link: "https://macrobrief.com/app/briefs/1", text: "full text" };
 
@@ -48,5 +48,40 @@ describe("whatsappProvider", () => {
     expect(whatsappProvider()).toBe("telnyx");
     process.env.WHATSAPP_PROVIDER = "twilio";
     expect(whatsappProvider()).toBe("twilio");
+  });
+});
+
+describe("sendWhatsApp free-form override", () => {
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    for (const k of ["WHATSAPP_PROVIDER", "TELNYX_API_KEY", "TELNYX_WHATSAPP_FROM", "TELNYX_WA_TEMPLATE"]) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+    globalThis.fetch = realFetch;
+  });
+  it("sends plain text when freeForm is asked for, even with a template configured (verification codes)", async () => {
+    process.env.WHATSAPP_PROVIDER = "telnyx";
+    process.env.TELNYX_API_KEY = "KEY";
+    process.env.TELNYX_WHATSAPP_FROM = "+13863598281";
+    process.env.TELNYX_WA_TEMPLATE = "daily_brief";
+    const bodies: string[] = [];
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+    await sendWhatsApp("+16505550100", msg, { freeForm: true });
+    await sendWhatsApp("+16505550100", msg);
+    expect(JSON.parse(bodies[0]).whatsapp_message.type).toBe("text");
+    expect(JSON.parse(bodies[1]).whatsapp_message.type).toBe("template");
+  });
+  it("exposes the sender number for the click-to-chat link, without a whatsapp: prefix", () => {
+    process.env.WHATSAPP_PROVIDER = "telnyx";
+    process.env.TELNYX_WHATSAPP_FROM = "+13863598281";
+    expect(whatsappSenderNumber()).toBe("+13863598281");
+    process.env.WHATSAPP_PROVIDER = "twilio";
+    process.env.TWILIO_WHATSAPP_FROM = "whatsapp:+14155238886";
+    expect(whatsappSenderNumber()).toBe("+14155238886");
   });
 });
