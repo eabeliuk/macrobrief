@@ -22,7 +22,9 @@
 
 ## M3 — channels
 - [x] WhatsApp via Twilio: short digest + link; template (`TWILIO_WA_TEMPLATE_SID`) for outside Meta's 24 h window, free-form otherwise; E.164 enforced (no country-code guessing)
-- [ ] Wire WhatsApp live: `macrobrief-twilio-sid/-token/-whatsapp-from` (+ approved template SID), redeploy
+- [x] WhatsApp via Telnyx (preferred): sender `+1 386 359 8281` registered under the Sakamoto Labs WABA, business verified 2026-09-21; template params flattened (Meta 132018)
+- [ ] Wire WhatsApp live: `macrobrief-telnyx-key/-whatsapp-from/-wa-template` (approved `daily_brief` template NAME), redeploy, smoke-test
+- [ ] WhatsApp template dynamic URL button (`/app/briefs/{{1}}`) — needs a `button` component in `telnyxPayload` and macrobrief.com mapped first (2026-09-22)
 - [ ] Instagram DM bot (Max tier; user-initiated 24 h window)
 - [x] Click tracking: signed `/r/<deliveryId>?to&sig` redirect (HMAC with AUTH_SECRET, no open redirect) → `Click` rows + `Delivery.openedAt`
 - [x] Clicks → ranking: per-reader publisher affinity (90 d, ≥3 clicks) lifts a tier-3 outlet to strong-tier-2 at most; never global

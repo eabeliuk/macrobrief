@@ -13,7 +13,16 @@ describe("telnyxPayload", () => {
     const t = (p.whatsapp_message as { template: { name: string; language: { code: string }; components: { parameters: { text: string }[] }[] } }).template;
     expect(t.name).toBe("macrobrief_daily");
     expect(t.language.code).toBe("en");
-    expect(t.components[0].parameters.map((x) => x.text)).toEqual([msg.title, msg.body, msg.link]);
+    expect(t.components[0].parameters.map((x) => x.text)).toEqual([msg.title, "*Lithium* • Story", msg.link]);
+  });
+  it("flattens newlines, tabs and space runs out of template parameters and caps them at Meta's 1024 chars", () => {
+    const long = "x".repeat(2000);
+    const p = telnyxPayload("+1", "+2", { ...msg, title: "A\tB", body: `l1\n\nl2\r\n     l3 ${long}` }, { name: "t", language: "en" });
+    const params = (p.whatsapp_message as { template: { components: { parameters: { text: string }[] }[] } }).template.components[0].parameters.map((x) => x.text);
+    expect(params[0]).toBe("A B");
+    expect(params[1].startsWith("l1 l2 l3 x")).toBe(true);
+    expect(params[1]).not.toMatch(/[\n\r\t]| {2,}/);
+    expect(params[1].length).toBe(1024);
   });
   it("falls back to free-form text when no template is configured", () => {
     const p = telnyxPayload("+1", "+2", msg, null);

@@ -106,7 +106,7 @@ async function send(delivery: PendingDelivery): Promise<Outcome> {
       return { status: "SENT" };
     }
     case "WHATSAPP": {
-      if (!whatsappConfigured()) return { status: "FAILED", error: "whatsapp not configured (TWILIO_*)" };
+      if (!whatsappConfigured()) return { status: "FAILED", error: "whatsapp not configured (TELNYX_* or TWILIO_*)" };
       const composed = composedOf(delivery.brief);
       const link = `${siteUrl()}/app/briefs/${delivery.brief.id}`;
       const text = whatsappText(composed, link, WHATSAPP_MAX_CHARS);

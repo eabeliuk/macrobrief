@@ -9,6 +9,9 @@
 
 const FREE_FORM_MAX = 1600;
 export const WHATSAPP_MAX_CHARS = FREE_FORM_MAX;
+// Meta rejects a template parameter that holds a newline, a tab or 4+ consecutive
+// spaces (error 132018), and caps each at 1024 characters — enforced by both BSPs.
+const TEMPLATE_PARAM_MAX = 1024;
 
 export type WhatsAppMessage = { title: string; body: string; link: string; text: string };
 type Outcome = { sent: boolean; error?: string };
@@ -48,7 +51,7 @@ export function telnyxPayload(from: string, to: string, message: WhatsAppMessage
       template: {
         name: template.name,
         language: { policy: "deterministic", code: template.language },
-        components: [{ type: "body", parameters: [message.title, message.body, message.link].map((text) => ({ type: "text", text })) }],
+        components: [{ type: "body", parameters: templateParams(message).map((text) => ({ type: "text", text })) }],
       },
     },
   };
@@ -92,7 +95,8 @@ async function sendViaTwilio(to: string, message: WhatsAppMessage): Promise<Outc
   const template = process.env.TWILIO_WA_TEMPLATE_SID;
   if (template) {
     form.set("ContentSid", template);
-    form.set("ContentVariables", JSON.stringify({ "1": message.title, "2": message.body, "3": message.link }));
+    const [title, body, link] = templateParams(message);
+    form.set("ContentVariables", JSON.stringify({ "1": title, "2": body, "3": link }));
   } else {
     form.set("Body", message.text);
   }
@@ -113,6 +117,12 @@ async function sendViaTwilio(to: string, message: WhatsAppMessage): Promise<Outc
     // Non-JSON error body; the status is enough.
   }
   return { sent: false, error: reason };
+}
+
+/** The three template variables — 1 title, 2 digest, 3 link — flattened to what Meta accepts. */
+function templateParams(message: WhatsAppMessage): [string, string, string] {
+  const flat = (text: string) => text.replace(/[\t\r\n]+/g, " ").replace(/ {2,}/g, " ").trim().slice(0, TEMPLATE_PARAM_MAX);
+  return [flat(message.title), flat(message.body), flat(message.link)];
 }
 
 /** Strip any `whatsapp:` prefix; both providers here take bare E.164. */
