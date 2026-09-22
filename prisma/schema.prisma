@@ -50,6 +50,11 @@ model User {
   /// Platform staff. A write, not a redeploy.
   isSuperAdmin Boolean @default(false)
 
+  /// Last successful sign-in. Null means the account exists but was never used —
+  /// an invitation. Recorded for every provider, including the email link, which
+  /// leaves no Account row behind.
+  lastSignInAt DateTime?
+
   plan             Plan    @default(FREE)
   stripeCustomerId String? @unique
   stripeSubId      String? @unique

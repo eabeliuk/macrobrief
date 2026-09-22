@@ -68,6 +68,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   events: {
+    // Every provider lands here — the email link leaves no Account row, so this
+    // is the only reliable record that someone actually used the account.
+    async signIn({ user }) {
+      if (user.id) await prisma.user.update({ where: { id: user.id }, data: { lastSignInAt: new Date() } });
+    },
     // A new account gets its email as the default delivery channel and a
     // weekly schedule, so the first brief needs no settings visit.
     async createUser({ user }) {

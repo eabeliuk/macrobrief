@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/session";
 import { SHOWCASE_EMAIL } from "@/lib/showcase";
 
+import { AutoSelect } from "@/components/auto-submit";
 import { SubmitButton } from "@/components/submit-button";
 
 import { inviteUser, pollSource, setUserPlan, toggleSource } from "./actions";
@@ -24,6 +25,16 @@ const ERRORS: Record<string, string> = {
   source: "Unknown source.",
 };
 
+/**
+ * Has this person ever used the account? The email-link provider leaves no
+ * Account row, so OAuth rows alone under-report it; a live session or any
+ * work they have done counts too, which keeps readers who signed in before
+ * lastSignInAt existed from showing as invitations.
+ */
+function signedIn(u: { lastSignInAt: Date | null; accounts: unknown[]; sessions: unknown[]; topics: unknown[]; _count: { briefs: number } }): boolean {
+  return Boolean(u.lastSignInAt) || u.accounts.length > 0 || u.sessions.length > 0 || u.topics.length > 0 || u._count.briefs > 0;
+}
+
 function when(d: Date | null | undefined): string {
   return d ? d.toISOString().slice(0, 16).replace("T", " ") : "—";
 }
@@ -37,6 +48,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       orderBy: { createdAt: "asc" },
       include: {
         accounts: { select: { provider: true } },
+        sessions: { select: { expires: true }, take: 1 },
         channels: true,
         topics: { orderBy: { createdAt: "asc" }, include: { sources: { include: { source: { include: { _count: { select: { items: true } } } } } } } },
         _count: { select: { briefs: true } },
@@ -73,7 +85,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <tr className="wire border-b border-ink text-left text-ink-2">
               <th className="py-2 pr-3 font-medium">Email</th>
               <th className="py-2 pr-3 font-medium">Plan</th>
-              <th className="hidden py-2 pr-3 font-medium sm:table-cell">Sign-in</th>
+              <th className="hidden py-2 pr-3 font-medium sm:table-cell">Sign-in · last</th>
               <th className="py-2 pr-3 text-right font-medium">Topics</th>
               <th className="py-2 pr-3 text-right font-medium">Briefs</th>
               <th className="hidden py-2 pr-3 font-medium md:table-cell">Channels</th>
@@ -87,20 +99,22 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 <td className="py-2.5 pr-3">
                   <span className="font-medium">{u.email}</span>
                   {u.isSuperAdmin ? <span className="wire ml-2 text-accent">staff</span> : null}
-                  {!u.accounts.length ? <span className="wire ml-2 text-ink-3">invited · not signed in</span> : null}
+                  {!signedIn(u) ? <span className="wire ml-2 text-ink-3">invited · not signed in</span> : null}
                 </td>
                 <td className="py-2.5 pr-3">
-                  <form action={setUserPlan} className="flex items-center gap-1">
+                  <form action={setUserPlan}>
                     <input type="hidden" name="userId" value={u.id} />
-                    <select name="plan" defaultValue={u.plan} className="input py-1 text-xs">
+                    <AutoSelect name="plan" defaultValue={u.plan} className="input py-1 text-xs" aria-label={`Plan for ${u.email}`}>
                       {PLAN_ORDER.map((p) => (
                         <option key={p} value={p}>{PLANS[p].name}</option>
                       ))}
-                    </select>
-                    <button type="submit" className="btn-quiet px-2 py-1 text-xs">Set</button>
+                    </AutoSelect>
                   </form>
                 </td>
-                <td className="wire hidden py-2.5 pr-3 sm:table-cell">{u.accounts.map((a) => a.provider).join(", ") || "—"}</td>
+                <td className="wire hidden py-2.5 pr-3 sm:table-cell">
+                  {u.accounts.map((a) => a.provider).join(", ") || (signedIn(u) ? "email link" : "—")}
+                  {u.lastSignInAt ? <span className="block normal-case tracking-normal text-ink-3">{when(u.lastSignInAt)}</span> : null}
+                </td>
                 <td className="fig py-2.5 pr-3 text-right">{u.topics.length}</td>
                 <td className="fig py-2.5 pr-3 text-right">{u._count.briefs}</td>
                 <td className="hidden py-2.5 pr-3 text-xs text-ink-2 md:table-cell">
