@@ -98,10 +98,11 @@ describe("verification codes through Meta's Authentication template", () => {
   });
   it("builds the auth payload: the code as body variable AND as the copy-code button's parameter", () => {
     const p = telnyxAuthPayload("+13863598281", "+16505550100", "483920", { name: "verification_code", language: "en" });
-    const t = (p.whatsapp_message as { template: { name: string; components: { type: string; sub_type?: string; index?: string; parameters: { type: string; text: string }[] }[] } }).template;
+    const t = (p.whatsapp_message as { template: { name: string; components: { type: string; sub_type?: string; index?: number; parameters: { type: string; text: string }[] }[] } }).template;
     expect(t.name).toBe("verification_code");
     expect(t.components[0]).toEqual({ type: "body", parameters: [{ type: "text", text: "483920" }] });
-    expect(t.components[1]).toEqual({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: "483920" }] });
+    // Telnyx wants the button index as a number (Meta's own API takes "0"): a string is a 400 "cannot unmarshal JSON string into Go type int".
+    expect(t.components[1]).toEqual({ type: "button", sub_type: "url", index: 0, parameters: [{ type: "text", text: "483920" }] });
   });
   it("sends the auth template when configured, else falls back to free-form text", async () => {
     process.env.WHATSAPP_PROVIDER = "telnyx";

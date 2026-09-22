@@ -98,7 +98,8 @@ export function telnyxPayload(from: string, to: string, message: WhatsAppMessage
 
 /**
  * Meta's Authentication template takes the code twice: as the body variable
- * and as the copy-code button's parameter (a `url` sub_type button at index 0).
+ * and as the copy-code button's parameter (a `url` sub_type button at index 0 —
+ * a number: Telnyx rejects Meta's string form with "cannot unmarshal … into Go type int").
  */
 export function telnyxAuthPayload(from: string, to: string, code: string, template: { name: string; language: string }) {
   const parameters = [{ type: "text", text: code }];
@@ -112,7 +113,7 @@ export function telnyxAuthPayload(from: string, to: string, code: string, templa
         language: { policy: "deterministic", code: template.language },
         components: [
           { type: "body", parameters },
-          { type: "button", sub_type: "url", index: "0", parameters },
+          { type: "button", sub_type: "url", index: 0, parameters },
         ],
       },
     },
@@ -137,7 +138,8 @@ async function postTelnyx(payload: unknown): Promise<Outcome> {
   });
   if (response.ok) return { sent: true };
   const detail = await response.text();
-  console.error(`[whatsapp/telnyx] send failed (${response.status}): ${detail.slice(0, 300)}`);
+  // One line: Cloud Logging splits a multi-line body into separate entries.
+  console.error(`[whatsapp/telnyx] send failed (${response.status}): ${detail.replace(/\s+/g, " ").slice(0, 400)}`);
   let reason = `telnyx ${response.status}`;
   try {
     const parsed = JSON.parse(detail) as { errors?: { code?: string; title?: string; detail?: string }[] };
