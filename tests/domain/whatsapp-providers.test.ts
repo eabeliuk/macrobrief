@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { sendWhatsApp, telnyxPayload, whatsappProvider, whatsappSenderNumber } from "@/lib/whatsapp";
+import { sendWhatsApp, sendWhatsAppCode, telnyxAuthPayload, telnyxPayload, whatsappCodeTemplated, whatsappProvider, whatsappSenderNumber } from "@/lib/whatsapp";
 
 const msg = { title: "MacroBrief — Thu", body: "*Lithium*\n• Story", link: "https://macrobrief.com/app/briefs/1", text: "full text" };
 
@@ -83,5 +83,47 @@ describe("sendWhatsApp free-form override", () => {
     process.env.WHATSAPP_PROVIDER = "twilio";
     process.env.TWILIO_WHATSAPP_FROM = "whatsapp:+14155238886";
     expect(whatsappSenderNumber()).toBe("+14155238886");
+  });
+});
+
+describe("verification codes through Meta's Authentication template", () => {
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    for (const k of ["WHATSAPP_PROVIDER", "TELNYX_API_KEY", "TELNYX_WHATSAPP_FROM", "TELNYX_WA_TEMPLATE", "TELNYX_WA_AUTH_TEMPLATE"]) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+    globalThis.fetch = realFetch;
+  });
+  it("builds the auth payload: the code as body variable AND as the copy-code button's parameter", () => {
+    const p = telnyxAuthPayload("+13863598281", "+16505550100", "483920", { name: "verification_code", language: "en" });
+    const t = (p.whatsapp_message as { template: { name: string; components: { type: string; sub_type?: string; index?: string; parameters: { type: string; text: string }[] }[] } }).template;
+    expect(t.name).toBe("verification_code");
+    expect(t.components[0]).toEqual({ type: "body", parameters: [{ type: "text", text: "483920" }] });
+    expect(t.components[1]).toEqual({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: "483920" }] });
+  });
+  it("sends the auth template when configured, else falls back to free-form text", async () => {
+    process.env.WHATSAPP_PROVIDER = "telnyx";
+    process.env.TELNYX_API_KEY = "KEY";
+    process.env.TELNYX_WHATSAPP_FROM = "+13863598281";
+    process.env.TELNYX_WA_TEMPLATE = "daily_brief";
+    const bodies: string[] = [];
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+    process.env.TELNYX_WA_AUTH_TEMPLATE = "verification_code";
+    expect(whatsappCodeTemplated()).toBe(true);
+    await sendWhatsAppCode("+16505550100", "483920", "Your code is 483920");
+    delete process.env.TELNYX_WA_AUTH_TEMPLATE;
+    expect(whatsappCodeTemplated()).toBe(false);
+    await sendWhatsAppCode("+16505550100", "483920", "Your code is 483920");
+    const first = JSON.parse(bodies[0]).whatsapp_message;
+    expect(first.type).toBe("template");
+    expect(first.template.name).toBe("verification_code");
+    const second = JSON.parse(bodies[1]).whatsapp_message;
+    expect(second.type).toBe("text");
+    expect(second.text.body).toBe("Your code is 483920");
   });
 });

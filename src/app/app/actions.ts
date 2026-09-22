@@ -14,7 +14,7 @@ import { CODE_TTL_MIN, codeMatches, needsVerification, newCode } from "@/lib/dom
 import { isAudioSpeed } from "@/lib/domain/voices";
 import { normalizeE164 } from "@/lib/domain/whatsapp";
 import { sendEmail } from "@/lib/mailer";
-import { sendWhatsApp, whatsappConfigured } from "@/lib/whatsapp";
+import { sendWhatsAppCode, whatsappConfigured } from "@/lib/whatsapp";
 import { pollDueSources } from "@/lib/ingest";
 import { prisma } from "@/lib/prisma";
 import { ownedTopic, planOf, requireUser } from "@/lib/session";
@@ -197,7 +197,7 @@ async function sendCode(channel: string, address: string, code: string): Promise
   const text = `Your MacroBrief verification code is ${code}. It expires in ${CODE_TTL_MIN} minutes.`;
   if (channel === "EMAIL") return (await sendEmail({ to: address, subject: `${code} is your MacroBrief code`, text })).sent;
   if (channel === "WHATSAPP" && whatsappConfigured()) {
-    return (await sendWhatsApp(address, { title: "MacroBrief code", body: text, link: "", text }, { freeForm: true })).sent;
+    return (await sendWhatsAppCode(address, code, text)).sent;
   }
   return false;
 }

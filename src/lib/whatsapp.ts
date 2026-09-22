@@ -39,10 +39,36 @@ export function whatsappSenderNumber(): string | null {
   return null;
 }
 
+/** Meta's Authentication-category template (name + language); null when not configured. */
+function authTemplate(): { name: string; language: string } | null {
+  const provider = whatsappProvider();
+  const name = provider === "telnyx" ? process.env.TELNYX_WA_AUTH_TEMPLATE : provider === "twilio" ? process.env.TWILIO_WA_AUTH_TEMPLATE_SID : undefined;
+  return name ? { name, language: process.env.TELNYX_WA_TEMPLATE_LANG || "en" } : null;
+}
+
+/** True when a verification code reaches the reader unprompted; false means they must message the sender first (24 h window). */
+export function whatsappCodeTemplated(): boolean {
+  return authTemplate() !== null;
+}
+
+/**
+ * A verification code. Through the Authentication template when one is
+ * configured — Meta delivers those unprompted, with a copy-code button —
+ * otherwise as free-form text, which only lands inside 24 h of the reader
+ * messaging the sender.
+ */
+export async function sendWhatsAppCode(to: string, code: string, text: string): Promise<Outcome> {
+  const template = authTemplate();
+  const provider = whatsappProvider();
+  if (template && provider === "telnyx") return postTelnyx(telnyxAuthPayload(process.env.TELNYX_WHATSAPP_FROM ?? "", to, code, template));
+  if (template && provider === "twilio") return postTwilio(to, { ContentSid: template.name, ContentVariables: JSON.stringify({ "1": code }) });
+  return sendWhatsApp(to, { title: "", body: "", link: "", text }, { freeForm: true });
+}
+
 /**
  * `freeForm` skips the approved template: the template's copy is the daily
- * brief, so anything else (a verification code) goes as plain text — which
- * Meta only delivers inside 24 h of the reader messaging the sender.
+ * brief, so anything else goes as plain text — which Meta only delivers
+ * inside 24 h of the reader messaging the sender.
  */
 export async function sendWhatsApp(to: string, message: WhatsAppMessage, opts: { freeForm?: boolean } = {}): Promise<Outcome> {
   const provider = whatsappProvider();
@@ -70,17 +96,44 @@ export function telnyxPayload(from: string, to: string, message: WhatsAppMessage
   };
 }
 
+/**
+ * Meta's Authentication template takes the code twice: as the body variable
+ * and as the copy-code button's parameter (a `url` sub_type button at index 0).
+ */
+export function telnyxAuthPayload(from: string, to: string, code: string, template: { name: string; language: string }) {
+  const parameters = [{ type: "text", text: code }];
+  return {
+    from: e164(from),
+    to: e164(to),
+    whatsapp_message: {
+      type: "template",
+      template: {
+        name: template.name,
+        language: { policy: "deterministic", code: template.language },
+        components: [
+          { type: "body", parameters },
+          { type: "button", sub_type: "url", index: "0", parameters },
+        ],
+      },
+    },
+  };
+}
+
 async function sendViaTelnyx(to: string, message: WhatsAppMessage, opts: { freeForm?: boolean }): Promise<Outcome> {
-  const key = process.env.TELNYX_API_KEY;
   const from = process.env.TELNYX_WHATSAPP_FROM;
-  if (!key || !from) return { sent: false, error: "telnyx not configured" };
+  if (!process.env.TELNYX_API_KEY || !from) return { sent: false, error: "telnyx not configured" };
   const name = opts.freeForm ? undefined : process.env.TELNYX_WA_TEMPLATE;
   const template = name ? { name, language: process.env.TELNYX_WA_TEMPLATE_LANG || "en" } : null;
+  return postTelnyx(telnyxPayload(from, to, message, template));
+}
 
+async function postTelnyx(payload: unknown): Promise<Outcome> {
+  const key = process.env.TELNYX_API_KEY;
+  if (!key) return { sent: false, error: "telnyx not configured" };
   const response = await fetch("https://api.telnyx.com/v2/messages/whatsapp", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify(telnyxPayload(from, to, message, template)),
+    body: JSON.stringify(payload),
   });
   if (response.ok) return { sent: true };
   const detail = await response.text();
@@ -99,20 +152,18 @@ async function sendViaTelnyx(to: string, message: WhatsAppMessage, opts: { freeF
 // ── Twilio ──────────────────────────────────────────────────────────────
 
 async function sendViaTwilio(to: string, message: WhatsAppMessage, opts: { freeForm?: boolean }): Promise<Outcome> {
+  const template = opts.freeForm ? undefined : process.env.TWILIO_WA_TEMPLATE_SID;
+  if (!template) return postTwilio(to, { Body: message.text });
+  const [title, body, link] = templateParams(message);
+  return postTwilio(to, { ContentSid: template, ContentVariables: JSON.stringify({ "1": title, "2": body, "3": link }) });
+}
+
+async function postTwilio(to: string, fields: Record<string, string>): Promise<Outcome> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM;
   if (!sid || !token || !from) return { sent: false, error: "twilio not configured" };
-
-  const form = new URLSearchParams({ To: `whatsapp:${e164(to)}`, From: from.startsWith("whatsapp:") ? from : `whatsapp:${from}` });
-  const template = opts.freeForm ? undefined : process.env.TWILIO_WA_TEMPLATE_SID;
-  if (template) {
-    form.set("ContentSid", template);
-    const [title, body, link] = templateParams(message);
-    form.set("ContentVariables", JSON.stringify({ "1": title, "2": body, "3": link }));
-  } else {
-    form.set("Body", message.text);
-  }
+  const form = new URLSearchParams({ To: `whatsapp:${e164(to)}`, From: from.startsWith("whatsapp:") ? from : `whatsapp:${from}`, ...fields });
 
   const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",

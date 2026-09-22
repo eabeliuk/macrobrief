@@ -6,7 +6,7 @@ import { cadenceAllowed, channelAllowed, type ChannelId } from "@/lib/domain/pla
 import { AUDIO_SPEEDS } from "@/lib/domain/voices";
 import { prisma } from "@/lib/prisma";
 import { planOf, requireUser } from "@/lib/session";
-import { whatsappSenderNumber } from "@/lib/whatsapp";
+import { whatsappCodeTemplated, whatsappSenderNumber } from "@/lib/whatsapp";
 
 import { ERRORS } from "../_shared";
 import { resendCode, setAudioPrefs, setChannelAddress, toggleChannel, updateSchedule, verifyChannel } from "../actions";
@@ -34,7 +34,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   ]);
   const rowOf = new Map(channels.map((c) => [c.channel, c]));
   const plan = planOf(user);
-  const sender = whatsappSenderNumber();
+  // Without Meta's Authentication template the code can only be sent as a reply, so the reader opens the chat first.
+  const sender = whatsappCodeTemplated() ? null : whatsappSenderNumber();
 
   return (
     <div className="space-y-6">
@@ -110,14 +111,22 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 ) : null}
 
                 {unverified ? (
-                  <form action={verifyChannel} className="flex items-end gap-2">
-                    <input type="hidden" name="channel" value={ch.id} />
-                    <div className="flex-1">
-                      <span className="label mb-1">{ch.id === "WHATSAPP" ? "3. Enter the code" : `Enter the code sent to ${row?.address}`}</span>
-                      <input className="input font-mono" name="code" inputMode="numeric" placeholder="123456" required />
-                    </div>
-                    <button type="submit" className="btn-quiet">Verify</button>
-                  </form>
+                  <div className="flex items-end gap-2">
+                    <form action={verifyChannel} className="flex flex-1 items-end gap-2">
+                      <input type="hidden" name="channel" value={ch.id} />
+                      <div className="flex-1">
+                        <span className="label mb-1">{ch.id === "WHATSAPP" && sender ? "3. Enter the code" : `Enter the code sent to ${row?.address}`}</span>
+                        <input className="input font-mono" name="code" inputMode="numeric" placeholder="123456" required />
+                      </div>
+                      <button type="submit" className="btn-quiet">Verify</button>
+                    </form>
+                    {!sender ? (
+                      <form action={resendCode}>
+                        <input type="hidden" name="channel" value={ch.id} />
+                        <button type="submit" className="btn-quiet">Resend</button>
+                      </form>
+                    ) : null}
+                  </div>
                 ) : null}
 
                 {ch.id === "AUDIO" && allowed ? (

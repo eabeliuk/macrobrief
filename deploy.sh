@@ -43,6 +43,7 @@ REQUIRED_SECRETS=(
   macrobrief-telnyx-key
   macrobrief-telnyx-whatsapp-from
   macrobrief-telnyx-wa-template
+  macrobrief-telnyx-wa-auth-template
   macrobrief-twilio-sid
   macrobrief-twilio-token
   macrobrief-twilio-whatsapp-from
