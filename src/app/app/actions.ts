@@ -95,7 +95,7 @@ export async function removeSource(formData: FormData): Promise<void> {
 }
 
 const ScheduleInput = z.object({
-  cadence: z.enum(["WEEKLY", "DAILY", "TWICE_DAILY"]),
+  cadence: z.enum(["WEEKLY", "DAILY", "TWICE_DAILY", "LIVE"]),
   // The form speaks a 12-hour clock; the schedule stores 0–23.
   hour12: z.coerce.number().int().min(1).max(12),
   meridiem: z.enum(["AM", "PM"]),
@@ -107,7 +107,7 @@ export async function updateSchedule(formData: FormData): Promise<void> {
   const user = await requireWriter();
   const parsed = ScheduleInput.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/app/settings?error=schedule");
-  const cadence: CadenceId = cadenceAllowed(planOf(user), parsed.data.cadence) ? parsed.data.cadence : "WEEKLY";
+  const cadence: CadenceId = cadenceAllowed(planOf(user), parsed.data.cadence) ? parsed.data.cadence : "DAILY";
   try {
     Intl.DateTimeFormat("en-US", { timeZone: parsed.data.timezone });
   } catch {

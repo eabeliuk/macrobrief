@@ -63,3 +63,23 @@ describe("duePeriod — WEEKLY", () => {
     expect(duePeriod(spec, new Date("2026-09-14T05:00:00Z")).periodKey).toBe("2026-W37");
   });
 });
+
+describe("duePeriod — LIVE", () => {
+  const spec = { cadence: "LIVE" as const, hour: 7, timezone: "America/Santiago", weekday: 1 };
+  it("keys on the hour just gone and covers exactly that hour", () => {
+    const due = duePeriod(spec, new Date("2026-09-23T14:37:00Z"));
+    expect(due.periodKey).toBe("2026-09-23T14/live");
+    expect(due.windowEnd.toISOString()).toBe("2026-09-23T14:00:00.000Z");
+    expect(due.windowStart.toISOString()).toBe("2026-09-23T13:00:00.000Z");
+  });
+  it("gives every tick in an hour the same key, so a reader is briefed once", () => {
+    const a = duePeriod(spec, new Date("2026-09-23T14:01:00Z"));
+    const b = duePeriod(spec, new Date("2026-09-23T14:59:00Z"));
+    expect(a.periodKey).toBe(b.periodKey);
+    expect(duePeriod(spec, new Date("2026-09-23T15:00:00Z")).periodKey).toBe("2026-09-23T15/live");
+  });
+  it("ignores the hour and zone the other cadences use", () => {
+    const utc = duePeriod({ ...spec, timezone: "UTC", hour: 3 }, new Date("2026-09-23T14:37:00Z"));
+    expect(utc.periodKey).toBe("2026-09-23T14/live");
+  });
+});

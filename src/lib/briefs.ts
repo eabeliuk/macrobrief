@@ -43,6 +43,14 @@ import { siteUrl } from "@/lib/stripe/client";
  */
 const RETRY_AFTER_MIN = 60;
 
+/**
+ * Live updates fire on the hour they cover, so the pool is one hour of
+ * publishing. One stray item is not an update worth interrupting anyone
+ * for; this is the floor below which the hour is skipped, before any model
+ * call.
+ */
+const LIVE_MIN_CANDIDATES = 3;
+
 /** Candidates handed to the ranker per topic; generous so dedupe has room. */
 const CANDIDATES_PER_TOPIC = 120;
 /** Channels that produce a Delivery row. WEB is the app itself; TEXT is the stored plain text. */
@@ -102,7 +110,9 @@ async function composeFor(
   try {
     const affinity = await publisherAffinity(user.id, now);
     const topics = await gatherTopics(user.topics, plan, period.windowStart, gatherEnd, affinity);
-    if (!topics.some((t) => t.items.length)) return { ok: false, reason: "no items in window yet" };
+    const candidates = topics.reduce((n, t) => n + t.items.length, 0);
+    if (!candidates) return { ok: false, reason: "no items in window yet" };
+    if (cadence === "LIVE" && candidates < LIVE_MIN_CANDIDATES) return { ok: false, reason: "too little new this hour for a live update" };
     if (!anthropicConfigured()) return { ok: false, reason: "ANTHROPIC_API_KEY unset" };
 
     const lang = user.topics[0]?.lang ?? "en";

@@ -25,6 +25,13 @@ const CHANNELS: { id: Exclude<ChannelId, "WEB" | "TEXT">; label: string; placeho
   { id: "INSTAGRAM", label: "Instagram", placeholder: "@handle", note: "Coming later — you DM the bot, it replies with your brief." },
 ];
 
+const CADENCE_LABELS: Record<string, string> = {
+  WEEKLY: "weekly",
+  DAILY: "daily",
+  TWICE_DAILY: "twice daily",
+  LIVE: "live — as the news lands",
+};
+
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
   const { error, notice } = await searchParams;
   const user = await requireUser();
@@ -48,7 +55,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <ScheduleForm
           action={updateSchedule}
           cadence={schedule?.cadence ?? "WEEKLY"}
-          cadences={(["WEEKLY", "DAILY", "TWICE_DAILY"] as const).map((c) => ({ id: c, label: c.toLowerCase().replace("_", " "), allowed: cadenceAllowed(plan, c) }))}
+          cadences={(["WEEKLY", "DAILY", "TWICE_DAILY", "LIVE"] as const).map((c) => ({ id: c, label: CADENCE_LABELS[c], allowed: cadenceAllowed(plan, c) }))}
           hour={schedule?.hour ?? 7}
           weekday={schedule?.weekday ?? 1}
           timezone={schedule?.timezone ?? "UTC"}

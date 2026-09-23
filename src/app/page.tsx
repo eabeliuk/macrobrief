@@ -108,7 +108,7 @@ export default async function LandingPage() {
                 <tr key={id} className="border-b border-rule">
                   <td className="py-2.5 pr-3 font-semibold">{plan.name}</td>
                   <td className="fig py-2.5 pr-3 text-right">{plan.maxTopics}</td>
-                  <td className="py-2.5 pr-3 text-ink-2">{plan.cadences.map((c) => c.toLowerCase().replace("_", " ")).join(" · ")}</td>
+                  <td className="py-2.5 pr-3 text-ink-2">{plan.cadences.map((c) => (c === "LIVE" ? "live" : c.toLowerCase().replace("_", " "))).join(" · ")}</td>
                   <td className="hidden py-2.5 pr-3 text-ink-2 sm:table-cell">{plan.channels.filter((c) => c !== "WEB").map((c) => c.toLowerCase()).join(" · ")}</td>
                   <td className="fig py-2.5 text-right">{plan.priceUsd.toFixed(2)}</td>
                 </tr>
@@ -117,7 +117,7 @@ export default async function LandingPage() {
           </tbody>
         </table>
         <p className="mt-3 text-sm text-ink-2">
-          Free is one topic, weekly, by email. Paid plans are billed monthly; change or cancel any time.
+          Free is one topic, once a day, by email — or weekly if you prefer. Paid plans are billed monthly; change or cancel any time.
         </p>
       </Row>
 

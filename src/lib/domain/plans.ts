@@ -10,7 +10,7 @@
  */
 
 export type PlanId = "FREE" | "STARTER" | "PRO" | "MAX";
-export type CadenceId = "WEEKLY" | "DAILY" | "TWICE_DAILY";
+export type CadenceId = "WEEKLY" | "DAILY" | "TWICE_DAILY" | "LIVE";
 export type ChannelId = "WEB" | "EMAIL" | "TEXT" | "AUDIO" | "WHATSAPP" | "INSTAGRAM";
 
 export type PlanLimits = {
@@ -31,22 +31,22 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     name: "Free",
     priceUsd: 0,
     maxTopics: 1,
-    cadences: ["WEEKLY"],
+    cadences: ["WEEKLY", "DAILY"],
     storiesPerTopic: 3,
     channels: ["WEB", "EMAIL"],
     premiumSources: false,
-    blurb: "One topic, one email a week.",
+    blurb: "One topic, one email a day.",
   },
   STARTER: {
     id: "STARTER",
     name: "Starter",
     priceUsd: 5,
-    maxTopics: 3,
+    maxTopics: 5,
     cadences: ["WEEKLY", "DAILY"],
     storiesPerTopic: 5,
     channels: ["WEB", "EMAIL", "TEXT"],
     premiumSources: false,
-    blurb: "Three topics, every morning.",
+    blurb: "Five topics, every morning.",
   },
   PRO: {
     id: "PRO",
@@ -64,11 +64,11 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     name: "Max",
     priceUsd: 29,
     maxTopics: 30,
-    cadences: ["WEEKLY", "DAILY", "TWICE_DAILY"],
+    cadences: ["WEEKLY", "DAILY", "TWICE_DAILY", "LIVE"],
     storiesPerTopic: 12,
     channels: ["WEB", "EMAIL", "TEXT", "AUDIO", "WHATSAPP", "INSTAGRAM"],
     premiumSources: true,
-    blurb: "Everything, twice a day, on every channel.",
+    blurb: "Everything, live, on every channel.",
   },
 };
 

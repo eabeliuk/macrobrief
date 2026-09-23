@@ -30,6 +30,13 @@ export type DuePeriod = {
 export type LocalParts = { year: number; month: number; day: number; hour: number; minute: number; weekday: number };
 
 const HOUR_MS = 3_600_000;
+/**
+ * LIVE covers the hour just gone and is keyed by the hour, so the cron can
+ * look every tick while a reader is briefed at most once an hour — and only
+ * when that hour actually brought something (the composer skips an empty
+ * pool before it ever calls the model).
+ */
+const LIVE_WINDOW_MS = HOUR_MS;
 const DAY_MS = 24 * HOUR_MS;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -98,6 +105,11 @@ export function duePeriod(spec: ScheduleSpec, now: Date): DuePeriod {
   const tz = spec.timezone;
   const today = localParts(now, tz);
 
+  if (spec.cadence === "LIVE") {
+    const end = new Date(Math.floor(now.getTime() / HOUR_MS) * HOUR_MS);
+    return { periodKey: `${end.toISOString().slice(0, 13)}/live`, windowStart: new Date(end.getTime() - LIVE_WINDOW_MS), windowEnd: end };
+  }
+
   if (spec.cadence === "DAILY") {
     let end = zonedToInstant(today.year, today.month, today.day, spec.hour, tz);
     if (end > now) end = new Date(end.getTime() - DAY_MS);
@@ -129,5 +141,8 @@ export function duePeriod(spec: ScheduleSpec, now: Date): DuePeriod {
 }
 
 export function periodLabel(cadence: CadenceId): string {
-  return cadence === "WEEKLY" ? "the last 7 days" : cadence === "DAILY" ? "the last 24 hours" : "the last 12 hours";
+  if (cadence === "WEEKLY") return "the last 7 days";
+  if (cadence === "DAILY") return "the last 24 hours";
+  if (cadence === "LIVE") return "the last hour";
+  return "the last 12 hours";
 }

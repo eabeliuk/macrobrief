@@ -216,6 +216,9 @@ enum Cadence {
   WEEKLY
   DAILY
   TWICE_DAILY
+  /// Max only: the cron looks every tick and sends when something new has
+  /// actually landed, at most once an hour.
+  LIVE
 }
 
 /// When a user wants their brief. One per user.
@@ -223,7 +226,7 @@ model Schedule {
   userId String @id
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  cadence   Cadence @default(WEEKLY)
+  cadence   Cadence @default(DAILY)
   /// Local hour (0–23) the brief should arrive. TWICE_DAILY also sends at hour+12.
   hour      Int     @default(7)
   /// IANA zone, e.g. "America/Santiago".

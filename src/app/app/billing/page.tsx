@@ -58,7 +58,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               <tr key={id} className={`border-b border-rule ${isCurrent ? "bg-accent-wash" : ""}`}>
                 <td className="py-3 pr-3 font-semibold">{plan.name}</td>
                 <td className="fig py-3 pr-3 text-right">{plan.maxTopics}</td>
-                <td className="py-3 pr-3 text-ink-2">{plan.cadences.map((c) => c.toLowerCase().replace("_", " ")).join(" · ")}</td>
+                <td className="py-3 pr-3 text-ink-2">{plan.cadences.map((c) => (c === "LIVE" ? "live" : c.toLowerCase().replace("_", " "))).join(" · ")}</td>
                 <td className="hidden py-3 pr-3 text-ink-2 sm:table-cell">{plan.channels.filter((c) => c !== "WEB").map((c) => c.toLowerCase()).join(" · ")}</td>
                 <td className="fig py-3 pr-3 text-right">{plan.priceUsd.toFixed(2)}</td>
                 <td className="py-3 text-right">
