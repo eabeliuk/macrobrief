@@ -6,11 +6,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
+import { requireWriter } from "@/lib/session";
 
 /** A share link is a random token on the brief; anyone with it can read that brief and nothing else. */
 export async function shareBrief(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const id = String(formData.get("briefId"));
   const brief = await prisma.brief.findFirst({ where: { id, userId: user.id }, select: { id: true, shareToken: true } });
   if (!brief) redirect("/app/briefs");
@@ -22,7 +22,7 @@ export async function shareBrief(formData: FormData): Promise<void> {
 }
 
 export async function unshareBrief(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const id = String(formData.get("briefId"));
   const brief = await prisma.brief.findFirst({ where: { id, userId: user.id }, select: { id: true } });
   if (!brief) redirect("/app/briefs");
@@ -33,7 +33,7 @@ export async function unshareBrief(formData: FormData): Promise<void> {
 
 /** Staff: re-make a brief's audio — after a voice, speed or language fix. */
 export async function regenerateAudio(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   if (!user.isSuperAdmin) redirect("/app/briefs");
   const id = String(formData.get("briefId"));
   const brief = await prisma.brief.findFirst({ where: { id, userId: user.id }, include: { sections: { orderBy: { position: "asc" }, take: 1, include: { topic: { select: { lang: true } } } } } });

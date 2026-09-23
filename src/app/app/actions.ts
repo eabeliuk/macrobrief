@@ -17,7 +17,7 @@ import { sendEmail } from "@/lib/mailer";
 import { sendWhatsAppCode, whatsappConfigured } from "@/lib/whatsapp";
 import { pollDueSources } from "@/lib/ingest";
 import { prisma } from "@/lib/prisma";
-import { ownedTopic, planOf, requireUser } from "@/lib/session";
+import { ownedTopic, planOf, requireWriter } from "@/lib/session";
 import { attachManualSource, attachSourcesForTopic } from "@/lib/sources";
 
 /**
@@ -32,7 +32,7 @@ const TopicInput = z.object({
 });
 
 export async function addTopic(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const parsed = TopicInput.safeParse({
     name: formData.get("name"),
     query: formData.get("query") || undefined,
@@ -62,7 +62,7 @@ export async function addTopic(formData: FormData): Promise<void> {
 }
 
 export async function deleteTopic(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const topic = await ownedTopic(user, String(formData.get("topicId")));
   if (topic) await prisma.topic.delete({ where: { id: topic.id } });
   revalidatePath("/app/topics");
@@ -70,7 +70,7 @@ export async function deleteTopic(formData: FormData): Promise<void> {
 }
 
 export async function addSource(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const topic = await ownedTopic(user, String(formData.get("topicId")));
   if (!topic) redirect("/app/topics");
   const url = String(formData.get("url") ?? "").trim();
@@ -84,7 +84,7 @@ export async function addSource(formData: FormData): Promise<void> {
 }
 
 export async function removeSource(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const topic = await ownedTopic(user, String(formData.get("topicId")));
   if (!topic) redirect("/app/topics");
   const sourceId = String(formData.get("sourceId"));
@@ -104,7 +104,7 @@ const ScheduleInput = z.object({
 });
 
 export async function updateSchedule(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const parsed = ScheduleInput.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/app/settings?error=schedule");
   const cadence: CadenceId = cadenceAllowed(planOf(user), parsed.data.cadence) ? parsed.data.cadence : "WEEKLY";
@@ -133,7 +133,7 @@ function isPushChannel(value: string): value is PushChannel {
 
 /** Flip a channel between Active and Disabled. The row is created on first use. */
 export async function toggleChannel(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const channel = String(formData.get("channel"));
   if (!isPushChannel(channel)) redirect("/app/settings?error=channel");
   if (!channelAllowed(planOf(user), channel)) redirect("/app/settings?error=plan");
@@ -151,7 +151,7 @@ export async function toggleChannel(formData: FormData): Promise<void> {
 
 /** Set the address of a WhatsApp or Instagram channel; a changed address must be verified again. */
 export async function setChannelAddress(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const channel = String(formData.get("channel"));
   if (channel !== "WHATSAPP" && channel !== "INSTAGRAM") redirect("/app/settings?error=channel");
   if (!channelAllowed(planOf(user), channel)) redirect("/app/settings?error=plan");
@@ -183,7 +183,7 @@ export async function setChannelAddress(formData: FormData): Promise<void> {
 
 /** Voice and speed for audio briefs — a choice for paid plans; Free readers keep the defaults. */
 export async function setAudioPrefs(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   if (planOf(user) === "FREE") redirect("/app/settings?error=plan");
   const voice = String(formData.get("voice") ?? user.audioVoice);
   const speed = Number(formData.get("speed") ?? user.audioSpeed);
@@ -208,7 +208,7 @@ async function sendCode(channel: string, address: string, code: string): Promise
  * do that and then tap Send code.
  */
 export async function resendCode(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const channel = String(formData.get("channel"));
   if (!isPushChannel(channel)) redirect("/app/settings?error=channel");
   const row = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
@@ -221,7 +221,7 @@ export async function resendCode(formData: FormData): Promise<void> {
 }
 
 export async function verifyChannel(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   const channel = String(formData.get("channel"));
   if (!isPushChannel(channel)) redirect("/app/settings?error=channel");
   const row = await prisma.deliveryChannel.findUnique({ where: { userId_channel: { userId: user.id, channel } } });
@@ -238,7 +238,7 @@ export async function verifyChannel(formData: FormData): Promise<void> {
  * readers get their briefs on the schedule they chose.
  */
 export async function briefNow(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireWriter();
   if (!user.isSuperAdmin) redirect("/app/briefs");
   const now = new Date();
   // Scoped to one topic when the form names one (the per-topic button); all topics otherwise.

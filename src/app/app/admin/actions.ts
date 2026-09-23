@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { makeViewAsCookie, VIEW_AS_COOKIE, VIEW_AS_MAX_AGE_S } from "@/lib/domain/impersonation";
 import { PLAN_ORDER, type PlanId } from "@/lib/domain/plans";
 import { pollDueSources } from "@/lib/ingest";
 import { prisma } from "@/lib/prisma";
@@ -65,4 +67,32 @@ export async function toggleSource(formData: FormData): Promise<void> {
   await prisma.source.update({ where: { id }, data: { enabled: !source.enabled, failCount: source.enabled ? source.failCount : 0, lastError: null } });
   revalidatePath("/app/admin");
   redirect("/app/admin#sources");
+}
+
+/**
+ * View a reader's account as they see it: topics, briefs, settings. Staff
+ * powers are dropped for the duration and nothing can be changed — see
+ * requireWriter. Every start is logged with both identities.
+ */
+export async function viewAsReader(formData: FormData): Promise<void> {
+  const admin = await requireSuperAdmin();
+  const userId = String(formData.get("userId"));
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true } });
+  if (!target || target.id === admin.id) redirect("/app/admin?error=user");
+  const secret = process.env.AUTH_SECRET ?? "";
+  if (!secret) redirect("/app/admin?error=user");
+  (await cookies()).set(VIEW_AS_COOKIE, makeViewAsCookie(target.id, secret), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: VIEW_AS_MAX_AGE_S,
+  });
+  console.info(`[admin] ${admin.email} is viewing ${target.email}`);
+  redirect("/app/briefs");
+}
+
+export async function stopViewing(): Promise<void> {
+  (await cookies()).delete(VIEW_AS_COOKIE);
+  redirect("/app/admin");
 }

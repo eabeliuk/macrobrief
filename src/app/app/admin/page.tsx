@@ -9,7 +9,7 @@ import { SHOWCASE_EMAIL } from "@/lib/showcase";
 import { AutoSelect } from "@/components/auto-submit";
 import { SubmitButton } from "@/components/submit-button";
 
-import { inviteUser, pollSource, setUserPlan, toggleSource } from "./actions";
+import { inviteUser, pollSource, setUserPlan, toggleSource, viewAsReader } from "./actions";
 
 /**
  * The staff view: who signed up and on what tier, what each of them
@@ -91,6 +91,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <th className="hidden py-2 pr-3 font-medium md:table-cell">Channels</th>
               <th className="hidden py-2 pr-3 font-medium md:table-cell">Last brief</th>
               <th className="hidden py-2 font-medium lg:table-cell">Joined</th>
+              <th className="py-2 pl-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -122,6 +123,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 </td>
                 <td className="wire hidden py-2.5 pr-3 md:table-cell">{when(u.briefs[0]?.createdAt)}</td>
                 <td className="wire hidden py-2.5 lg:table-cell">{when(u.createdAt).slice(0, 10)}</td>
+                <td className="py-2.5 pl-3 text-right">
+                  <form action={viewAsReader}>
+                    <input type="hidden" name="userId" value={u.id} />
+                    <button type="submit" className="text-xs text-accent hover:underline">View as</button>
+                  </form>
+                </td>
               </tr>
             ))}
           </tbody>

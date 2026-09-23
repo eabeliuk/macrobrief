@@ -4,10 +4,13 @@ import { signOut } from "@/auth";
 import { BottomNav, SideNav } from "@/components/app-nav";
 import { Logotype } from "@/components/marks";
 import { PLANS } from "@/lib/domain/plans";
-import { planOf, requireUser } from "@/lib/session";
+import { planOf, requireUser, viewer } from "@/lib/session";
+
+import { stopViewing } from "./admin/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  const { realUser, impersonating } = await viewer();
 
   async function out() {
     "use server";
@@ -19,6 +22,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh pb-24 lg:pb-0">
+      {impersonating ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-ink px-5 py-2 text-sm text-white">
+          <span>
+            Viewing <strong>{user.email}</strong> as {realUser?.email} · read-only
+          </span>
+          <form action={stopViewing}>
+            <button type="submit" className="rounded-md bg-white/15 px-3 py-1 text-xs font-medium hover:bg-white/25">Stop viewing</button>
+          </form>
+        </div>
+      ) : null}
       {/* Full-bleed header: the mark at the window's left edge, the profile at its right. */}
       <header className="flex items-center justify-between border-b border-rule bg-card px-5 py-4">
         <Link href="/app/briefs" aria-label="Briefs">
