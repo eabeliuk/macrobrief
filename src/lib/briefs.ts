@@ -34,6 +34,15 @@ import { siteUrl } from "@/lib/stripe/client";
  * stays open so the next tick tries again once ingest has caught up.
  */
 
+/**
+ * How long to wait before composing again for a reader whose last attempt
+ * produced nothing. A brief is only attempted when there are items in the
+ * window, so "nothing" means the model rejected the pool — usually a pool
+ * that was still filling. Retrying is right; retrying every ten minutes
+ * would spend a model call each time.
+ */
+const RETRY_AFTER_MIN = 60;
+
 /** Candidates handed to the ranker per topic; generous so dedupe has room. */
 const CANDIDATES_PER_TOPIC = 120;
 /** Channels that produce a Delivery row. WEB is the app itself; TEXT is the stored plain text. */
@@ -59,6 +68,9 @@ export async function composeDueBriefs(now: Date, { limit = 25, userId }: { limi
     const due = duePeriod({ ...user.schedule, cadence }, now);
     const existing = await prisma.brief.findUnique({ where: { userId_periodKey: { userId: user.id, periodKey: due.periodKey } } });
     if (existing) continue;
+    const lastAttempt = user.schedule.lastAttemptAt;
+    if (lastAttempt && now.getTime() - lastAttempt.getTime() < RETRY_AFTER_MIN * 60_000) continue;
+    await prisma.schedule.update({ where: { userId: user.id }, data: { lastAttemptAt: now } });
     // A first brief may include what was fetched since the window closed —
     // the reader just signed up and is waiting for it.
     const gatherEnd = user._count.briefs === 0 ? now : due.windowEnd;
@@ -96,6 +108,13 @@ async function composeFor(
     const lang = user.topics[0]?.lang ?? "en";
     const { composed: written, usage } = await compose({ periodLabel: periodLabel(cadence), lang, topics });
     const composed = { ...written, title: briefTitle(user.topics.map((t) => t.name)) };
+    // A brief with no stories is not a brief: persisting one would consume the
+    // period and leave the reader with "nothing new" until the next one. This
+    // happens when the pool was still filling — a topic added minutes ago —
+    // so leave the period open and let a later run try with more to read.
+    if (!composed.sections.some((section) => section.stories.length)) {
+      return { ok: false, reason: "the model found nothing worth reporting in the pool so far" };
+    }
     // Only verified addresses receive anything — see domain/verification.ts.
     const sendTo = user.channels.filter((c) => c.verified && channels.includes(c.channel) && SENDABLE.includes(c.channel));
 

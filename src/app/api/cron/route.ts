@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { composeDueBriefs } from "@/lib/briefs";
 import { deliverPending } from "@/lib/delivery";
-import { backfillBriefLang, backfillGoogleLinks, dropUntitled, pollDueSources, pruneItems } from "@/lib/ingest";
+import { backfillBriefLang, backfillGoogleLinks, dropUntitled, pollDueSources, pruneItems, reviveTransientlyDisabled } from "@/lib/ingest";
 import { ensureShowcase } from "@/lib/showcase";
 
 /**
@@ -26,11 +26,12 @@ export async function GET(request: Request) {
   await ensureShowcase();
   await dropUntitled();
   await backfillBriefLang();
+  const revived = await reviveTransientlyDisabled();
   const ingest = await pollDueSources(now);
   const resolved = await backfillGoogleLinks();
   const compose = await composeDueBriefs(now);
   const deliver = await deliverPending();
   const pruned = await pruneItems(now);
 
-  return NextResponse.json({ at: now.toISOString(), ingest, resolved, compose, deliver, pruned });
+  return NextResponse.json({ at: now.toISOString(), ingest, revived, resolved, compose, deliver, pruned });
 }

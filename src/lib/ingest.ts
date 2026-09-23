@@ -14,6 +14,15 @@ import { mapWithConcurrency } from "@/lib/sources";
 
 export const POLL_INTERVAL_MIN = 30;
 const MAX_FAILS = 20;
+/**
+ * A source is retired only for failures that will not fix themselves. A
+ * 5xx, a 429 or a timeout is the other end having a bad day — Google News
+ * answers 503 to cloud IPs for hours at a time — and retiring a feed for
+ * that loses the topic its best source permanently.
+ */
+function isTransient(message: string): boolean {
+  return /HTTP (429|5\d\d)|timed out|fetch failed|ECONN|ETIMEDOUT|socket hang up/i.test(message);
+}
 const POLL_CONCURRENCY = 5;
 const PRUNE_AFTER_DAYS = 30;
 /** Google links already stored, resolved per cron tick — small and sequential; Google throttles cloud IPs hard. */
@@ -69,7 +78,7 @@ async function pollOne(source: Source, now: Date): Promise<{ ok: true; inserted:
     console.warn(`[ingest] ${source.url}: ${message}`);
     await prisma.source.update({
       where: { id: source.id },
-      data: { lastPolledAt: now, lastError: message, failCount, enabled: failCount < MAX_FAILS },
+      data: { lastPolledAt: now, lastError: message, failCount, enabled: isTransient(message) || failCount < MAX_FAILS },
     });
     return { ok: false };
   }
@@ -127,6 +136,15 @@ export async function backfillGoogleLinks(): Promise<number> {
   }
   if (items.length && !changed && lastResolveError) console.warn(`[resolve] 0/${items.length} resolved — last error: ${lastResolveError}`);
   return changed;
+}
+
+/** Sources retired by a run of transient failures, given another chance. */
+export async function reviveTransientlyDisabled(): Promise<number> {
+  const { count } = await prisma.source.updateMany({
+    where: { enabled: false, OR: [{ lastError: { contains: "HTTP 5" } }, { lastError: { contains: "HTTP 429" } }, { lastError: { contains: "timed out" } }] },
+    data: { enabled: true, failCount: 0 },
+  });
+  return count;
 }
 
 /** Rows stored as "(untitled)" by the old parser: drop them so the next poll re-inserts them with their real titles. */

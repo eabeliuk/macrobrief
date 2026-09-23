@@ -21,6 +21,8 @@ export default async function BriefPage({ params, searchParams }: { params: Prom
     include: { sections: { orderBy: { position: "asc" } }, deliveries: true },
   });
   if (!brief) notFound();
+  // Nothing to share when the period brought nothing in.
+  const hasStories = brief.sections.some((section) => (section.stories as unknown[]).length > 0);
 
   return (
     <article className="space-y-8">
@@ -48,8 +50,9 @@ export default async function BriefPage({ params, searchParams }: { params: Prom
         </section>
       ) : null}
 
-      <BriefBody sections={brief.sections} />
+      <BriefBody sections={brief.sections} topicHref={(topicId) => `/app/topics/${topicId}`} />
 
+      {hasStories ? (
       <section className="card space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Share</h2>
@@ -73,6 +76,7 @@ export default async function BriefPage({ params, searchParams }: { params: Prom
           </form>
         )}
       </section>
+      ) : null}
 
       <section className="card">
         <div className="flex items-center justify-between">

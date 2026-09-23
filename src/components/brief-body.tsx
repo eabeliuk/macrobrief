@@ -1,7 +1,7 @@
 import type { Story } from "@/lib/domain/brief";
 
 /** The brief's sections, as rendered in the app and on a shared page. */
-export function BriefBody({ sections }: { sections: { id: string; heading: string; stories: unknown }[] }) {
+export function BriefBody({ sections, topicHref }: { sections: { id: string; heading: string; stories: unknown; topicId?: string }[]; topicHref?: (topicId: string) => string }) {
   return (
     <>
       {sections.map((section) => {
@@ -9,7 +9,17 @@ export function BriefBody({ sections }: { sections: { id: string; heading: strin
         return (
           <section key={section.id}>
             <h2 className="text-lg font-semibold">{section.heading}</h2>
-            {!stories.length ? <p className="mt-2 text-sm text-ink-3">Nothing new this period.</p> : null}
+            {!stories.length ? (
+              <p className="mt-2 text-sm text-ink-3">
+                Nothing your sources published in this window was about this topic.
+                {topicHref && section.topicId ? (
+                  <>
+                    {" "}
+                    <a href={topicHref(section.topicId)} className="text-accent hover:underline">See everything they published →</a>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
             <ul className="mt-3 space-y-4">
               {stories.map((story) => (
                 <li key={story.link}>

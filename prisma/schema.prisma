@@ -230,6 +230,9 @@ model Schedule {
   timezone  String  @default("UTC")
   /// WEEKLY only: 0 = Sunday … 6 = Saturday.
   weekday   Int     @default(1)
+  /// Last time the composer ran for this reader, whether or not it produced a
+  /// brief — the cooldown that keeps a retry from calling the model every tick.
+  lastAttemptAt DateTime?
 
   updatedAt DateTime @updatedAt
 }
