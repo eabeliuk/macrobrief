@@ -13,23 +13,10 @@ import { todaysBudget } from "@/lib/showcase";
  * docs/art-direction.md — the hero is the artifact, and the artifact is real.
  */
 
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-
-/** Row form: no zone suffix — the header already says UTC. */
-function filed(d: Date): string {
-  return dateline(d).replace(/ UTC$/, "");
-}
-
-function dateline(d: Date): string {
-  return `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS[d.getUTCMonth()]} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")} UTC`;
-}
 
 export default async function LandingPage() {
   const now = new Date();
   const [user, budget] = await Promise.all([currentUser(), todaysBudget(now)]);
-  const rows = budget.topics.reduce((n, t) => n + t.rows.length, 0);
-  const candidates = budget.topics.reduce((n, t) => n + t.candidates, 0);
-  const runs = budget.topics.reduce((n, t) => n + t.rows.filter((r) => r.decision === "RUNS").length, 0);
 
   return (
     <main className="mx-auto max-w-6xl px-5 pb-16">
@@ -54,11 +41,12 @@ export default async function LandingPage() {
             Name a few topics. MacroBrief finds the sources, reads everything they publish, decides what matters, and
             sends you one brief on your schedule — by email now, as audio and on WhatsApp soon.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/login" className="btn">Start free</Link>
+            <Link href="/example" className="btn-quiet">Live example</Link>
           </div>
           <p className="wire mt-10 text-ink-3">
-            Below: the editor&apos;s sheet for three topics we follow ourselves, ranked {budget.compiledAt ? "minutes" : "moments"} ago. Not a mockup.
+            The live example is the editor&apos;s own sheet for three topics we follow ourselves, ranked {budget.compiledAt ? "minutes" : "moments"} ago. Not a mockup.
           </p>
         </div>
         <div className="lg:col-span-3">
@@ -67,49 +55,6 @@ export default async function LandingPage() {
       </section>
 
       {/* The sheet. */}
-      <section id="budget" className="border-t-2 border-ink">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 py-3">
-          <h2 className="wire text-ink">
-            Budget · last {budget.windowHours} h · {candidates} candidates → {rows} groups → {runs} run
-          </h2>
-          <p className="wire text-ink-3">score = ln(1 + desks moving it) × publisher tier · duplicates collapsed by headline</p>
-        </div>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="wire border-b border-ink text-left text-ink-2">
-              <th className="py-2 pr-3 font-medium">Slug / story</th>
-              <th className="hidden py-2 pr-3 font-medium md:table-cell">Desk</th>
-              <th className="py-2 pr-3 text-right font-medium">Moved</th>
-              <th className="hidden py-2 pr-3 text-right font-medium sm:table-cell">Tier</th>
-              <th className="hidden py-2 pr-3 text-right font-medium sm:table-cell">Score</th>
-              <th className="hidden py-2 pr-3 text-right font-medium md:table-cell">Filed (UTC)</th>
-              <th className="py-2 text-right font-medium">Decision</th>
-            </tr>
-          </thead>
-          <tbody>
-            {budget.topics.map((topic) => (
-              <TopicRows key={topic.name} topic={topic} />
-            ))}
-            {!budget.topics.length || !rows ? (
-              <tr>
-                <td colSpan={7} className="wire py-8 text-ink-3">
-                  No budget — first poll pending. The sheet fills in within ten minutes of the first cron tick.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-        <div className="mt-2 border-t border-ink pt-[3px]">
-          <div className="border-t border-ink" />
-        </div>
-        <p className="mt-3 max-w-3xl text-sm text-ink-2">
-          This is the cut before the writing. A reader on any plan gets exactly this editor on their own topics; the
-          stories marked RUNS are then written up — headline, three sentences, one cited link each — by the model, in one
-          call, and sent.
-        </p>
-      </section>
-
-      {/* The rest of the page keeps the 2:5 split: a label column and the content. */}
       <Row label="Sources">
         <p>
           Two query feeds exist for any string — Google News and Bing News, both free, both naming the publisher per
@@ -200,40 +145,5 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <h2 className="wire text-ink-2 lg:col-span-2">{label}</h2>
       <div className="max-w-3xl text-[15px] leading-relaxed text-ink lg:col-span-5">{children}</div>
     </section>
-  );
-}
-
-function TopicRows({ topic }: { topic: Awaited<ReturnType<typeof todaysBudget>>["topics"][number] }) {
-  return (
-    <>
-      <tr className="border-b border-rule bg-page">
-        <td colSpan={7} className="pt-5 pb-1.5">
-          <span className="text-sm font-bold">{topic.name}</span>
-          <span className="wire ml-3 text-ink-3">
-            {topic.candidates} candidates · {topic.rows.length} groups
-          </span>
-        </td>
-      </tr>
-      {topic.rows.map((r) => (
-        <tr key={r.link} className={`border-b border-rule align-top ${r.decision === "HELD" ? "text-ink-3" : ""}`}>
-          <td className="py-2.5 pr-3">
-            <p className="wire">{r.slug}</p>
-            <a href={r.link} target="_blank" rel="noreferrer" className={`text-sm leading-snug hover:underline ${r.decision === "HELD" ? "" : "font-semibold"}`}>
-              {r.headline}
-            </a>
-            <p className="wire mt-0.5 text-ink-3 md:hidden">{r.publisher ?? "—"}</p>
-          </td>
-          <td className="wire hidden py-2.5 pr-3 md:table-cell">
-            <span className="block text-ink">{r.desk?.city ?? "—"}</span>
-            <span className="block normal-case tracking-normal text-ink-3">{r.publisher ?? ""}</span>
-          </td>
-          <td className="fig py-2.5 pr-3 text-right text-sm">{r.mentions}</td>
-          <td className="fig hidden py-2.5 pr-3 text-right text-sm sm:table-cell">{r.tier}</td>
-          <td className="fig hidden py-2.5 pr-3 text-right text-sm sm:table-cell">{r.score.toFixed(2)}</td>
-          <td className="wire hidden whitespace-nowrap py-2.5 pr-3 text-right md:table-cell">{filed(r.publishedAt)}</td>
-          <td className={`wire py-2.5 text-right ${r.decision === "RUNS" ? "font-medium text-accent" : ""}`}>{r.decision}</td>
-        </tr>
-      ))}
-    </>
   );
 }
