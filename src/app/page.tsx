@@ -14,7 +14,6 @@ import { todaysBudget } from "@/lib/showcase";
  */
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 /** Row form: no zone suffix — the header already says UTC. */
 function filed(d: Date): string {
@@ -36,10 +35,6 @@ export default async function LandingPage() {
     <main className="mx-auto max-w-6xl px-5 pb-16">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-ink py-5">
         <Wordmark height={26} />
-        <p className="wire text-ink-2">
-          News budget · {DAYS[now.getUTCDay()]} {dateline(now)}
-          {budget.compiledAt ? ` · compiled ${dateline(budget.compiledAt)}` : ""}
-        </p>
         <Link href={user ? "/app" : "/login"} className="btn-quiet">
           {user ? "Open the app" : "Sign in"}
         </Link>
@@ -59,9 +54,8 @@ export default async function LandingPage() {
             Name a few topics. MacroBrief finds the sources, reads everything they publish, decides what matters, and
             sends you one brief on your schedule — by email now, as audio and on WhatsApp soon.
           </p>
-          <div className="mt-8 flex gap-3">
+          <div className="mt-8">
             <Link href="/login" className="btn">Start free</Link>
-            <a href="#budget" className="btn-quiet">Today&apos;s budget</a>
           </div>
           <p className="wire mt-10 text-ink-3">
             Below: the editor&apos;s sheet for three topics we follow ourselves, ranked {budget.compiledAt ? "minutes" : "moments"} ago. Not a mockup.
@@ -187,10 +181,12 @@ export default async function LandingPage() {
           <Isotype height={40} />
         </div>
         <div className="lg:col-span-5">
-          <p className="max-w-xl text-2xl font-bold leading-snug tracking-tight">
-            The whole world behind. One thing in front of it, choosing what reaches you.
-          </p>
-          <Link href="/login" className="btn mt-6">Start free</Link>
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <p className="max-w-lg text-2xl font-bold leading-snug tracking-tight">
+              The whole world behind. One thing in front of it, choosing what reaches you.
+            </p>
+            <Link href="/login" className="btn shrink-0">Start free</Link>
+          </div>
           <p className="wire mt-10 text-ink-3">© {now.getUTCFullYear()} MacroBrief · A Macro brand · a Sakamoto Labs LLC product</p>
         </div>
       </section>
