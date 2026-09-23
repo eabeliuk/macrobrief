@@ -102,6 +102,7 @@ steps:
         add TELNYX_WHATSAPP_FROM macrobrief-telnyx-whatsapp-from
         add TELNYX_WA_TEMPLATE macrobrief-telnyx-wa-template
         add TELNYX_WA_AUTH_TEMPLATE macrobrief-telnyx-wa-auth-template
+        add TELNYX_WA_AUTH_TEMPLATE_LANG macrobrief-telnyx-wa-auth-template-lang
         add TWILIO_ACCOUNT_SID macrobrief-twilio-sid
         add TWILIO_AUTH_TOKEN macrobrief-twilio-token
         add TWILIO_WHATSAPP_FROM macrobrief-twilio-whatsapp-from

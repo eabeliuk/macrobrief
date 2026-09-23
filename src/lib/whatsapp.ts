@@ -43,7 +43,11 @@ export function whatsappSenderNumber(): string | null {
 function authTemplate(): { name: string; language: string } | null {
   const provider = whatsappProvider();
   const name = provider === "telnyx" ? process.env.TELNYX_WA_AUTH_TEMPLATE : provider === "twilio" ? process.env.TWILIO_WA_AUTH_TEMPLATE_SID : undefined;
-  return name ? { name, language: process.env.TELNYX_WA_TEMPLATE_LANG || "en" } : null;
+  // Meta stores a template under an exact language code: two templates on the
+  // same account can be "en" and "en_US", and asking for the wrong one is
+  // rejected as if the template did not exist. The code template carries its
+  // own setting for that reason.
+  return name ? { name, language: process.env.TELNYX_WA_AUTH_TEMPLATE_LANG || process.env.TELNYX_WA_TEMPLATE_LANG || "en" } : null;
 }
 
 /** True when a verification code reaches the reader unprompted; false means they must message the sender first (24 h window). */
